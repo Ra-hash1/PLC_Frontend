@@ -4,9 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import logo from '../assets/Intute.png'
 
-const LIVE_THRESHOLD_MS = 15_000   // machine is "live" if data arrived within 15 s
+const LIVE_THRESHOLD_MS = 15_000
 
-/* ─── safely skip WebSocket when no machineId is given ─── */
 const useMaybeWebSocket = (machineId) => {
   const result = useWebSocket(machineId ?? '__none__')
   return machineId ? result : { connected: false, lastDataAt: null }
@@ -17,15 +16,12 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
   const { connected, lastDataAt } = useMaybeWebSocket(machineId)
   const navigate = useNavigate()
 
-  // Re-evaluate "live" every second so the badge flips automatically
-  // when the machine goes silent — even if the socket stays open.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
 
-  // "Live" = socket open AND a telemetry frame arrived within the last 15 s
   const isLive = connected && lastDataAt != null && (now - lastDataAt) < LIVE_THRESHOLD_MS
 
   const fmt = (d) => ({
@@ -39,8 +35,6 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
   }, [])
 
   const showMachineZone = Boolean(machineId)
-
-  // How long since last data (for tooltip / sub-label)
   const secondsSinceData = lastDataAt != null ? Math.floor((now - lastDataAt) / 1000) : null
 
   return (
@@ -49,7 +43,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
 
         .hdr-root {
-          --hdr-h: 80px;
+          --hdr-h: 70px;
           --accent:  #38bdf8;
           --accent2: #818cf8;
           --green:   #34d399;
@@ -112,10 +106,11 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           width: 100%;
           display: flex;
           align-items: center;
-          padding: 0 28px;
+          padding: 0 24px;
           position: relative;
           z-index: 1;
           gap: 0;
+          min-width: 0;
         }
 
         /* ── Back button ── */
@@ -124,9 +119,10 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           background: none; border: none; cursor: pointer;
           color: var(--text-lo); font-family: 'Outfit', sans-serif;
           font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-          text-transform: uppercase; padding: 0 20px 0 0; margin-right: 0;
+          text-transform: uppercase; padding: 0 16px 0 0; margin-right: 0;
           border-right: 1px solid var(--border); height: 100%;
           transition: color 0.15s; flex-shrink: 0;
+          white-space: nowrap;
         }
         .hdr-back-btn:hover { color: var(--accent); }
         .hdr-back-btn svg { width: 14px; height: 14px; transition: transform 0.15s; }
@@ -134,42 +130,46 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
 
         /* ── Logo ── */
         .hdr-logo-zone {
-          display: flex; align-items: center; gap: 14px; cursor: pointer;
-          padding: 0 28px; border-right: 1px solid var(--border); height: 100%;
+          display: flex; align-items: center; gap: 12px; cursor: pointer;
+          padding: 0 20px; border-right: 1px solid var(--border); height: 100%;
           flex-shrink: 0; transition: opacity 0.2s;
+          min-width: 0;
         }
         .hdr-logo-zone:hover { opacity: 0.8; }
         .hdr-logo-ring {
-          width: 68px; height: 68px; border-radius: 16px; padding: 2px;
+          width: 58px; height: 58px; border-radius: 14px; padding: 2px;
           background: linear-gradient(135deg, var(--accent), var(--accent2));
           flex-shrink: 0; box-shadow: 0 0 18px rgba(56,189,248,0.25); overflow: visible;
         }
         .hdr-logo-inner {
-          width: 100%; height: 100%; border-radius: 18px; background: #0a1628;
+          width: 100%; height: 100%; border-radius: 12px; background: #0a1628;
           display: flex; align-items: center; justify-content: center; overflow: visible;
         }
-        .hdr-logo-img { width: 200px; height: 200px; object-fit: contain; }
+        .hdr-logo-img { width: 180px; height: 180px; object-fit: contain; }
         .hdr-logo-fallback {
-          font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--accent);
+          font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent);
         }
-        .hdr-brand { display: flex; flex-direction: column; gap: 3px; }
+        .hdr-brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .hdr-brand-name {
-          font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800;
+          font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
           color: var(--text-hi); letter-spacing: -0.02em; line-height: 1;
+          white-space: nowrap;
         }
         .hdr-brand-tag {
           font-family: 'DM Mono', monospace; font-size: 9px; font-weight: 500;
           color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase;
-          line-height: 1; opacity: 0.75;
+          line-height: 1; opacity: 0.75; white-space: nowrap;
         }
 
         /* ── Machine zone ── */
         .hdr-machine-zone {
-          display: flex; align-items: center; gap: 20px; padding: 0 28px; flex-shrink: 0;
+          display: flex; align-items: center; gap: 16px; padding: 0 20px; flex-shrink: 0;
+          min-width: 0;
         }
         .hdr-machine-name {
-          font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
           color: var(--text-hi); letter-spacing: -0.01em; line-height: 1; display: block;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
         }
         .hdr-machine-id {
           font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text-lo);
@@ -183,13 +183,14 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           flex-direction: column;
           align-items: center;
           gap: 2px;
-          padding: 6px 14px;
+          padding: 6px 12px;
           border-radius: 99px;
           font-size: 11px;
           font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           transition: all 0.3s;
+          flex-shrink: 0;
         }
         .hdr-status-row {
           display: flex; align-items: center; gap: 8px;
@@ -228,7 +229,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           100% { transform: scale(2.8); opacity: 0; }
         }
 
-        .hdr-spacer { flex: 1; }
+        .hdr-spacer { flex: 1; min-width: 0; }
 
         /* ── Metrics strip ── */
         .hdr-metrics {
@@ -238,11 +239,11 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
         }
         .hdr-metric {
           display: flex; flex-direction: column; align-items: center; gap: 3px;
-          padding: 10px 18px; border-right: 1px solid var(--border);
+          padding: 10px 16px; border-right: 1px solid var(--border);
         }
         .hdr-metric:last-child { border-right: none; }
         .hdr-metric-val {
-          font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500;
+          font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
           line-height: 1; letter-spacing: 0.04em;
         }
         .hdr-metric-lbl {
@@ -252,20 +253,20 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
 
         /* ── Right zone ── */
         .hdr-right {
-          display: flex; align-items: center; gap: 12px;
-          padding-left: 24px; border-left: 1px solid var(--border);
+          display: flex; align-items: center; gap: 10px;
+          padding-left: 20px; border-left: 1px solid var(--border);
           height: 100%; flex-shrink: 0;
         }
         .hdr-avatar {
-          width: 36px; height: 36px; border-radius: 10px;
+          width: 34px; height: 34px; border-radius: 9px;
           background: linear-gradient(135deg, #1e40af, #7c3aed);
           border: 1px solid rgba(124,58,237,0.4);
           display: flex; align-items: center; justify-content: center;
-          font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; color: #fff;
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: #fff;
           flex-shrink: 0; box-shadow: 0 0 12px rgba(124,58,237,0.2);
         }
-        .hdr-user-info { display: flex; flex-direction: column; gap: 3px; }
-        .hdr-user-name { font-size: 12px; font-weight: 600; color: var(--text-hi); line-height: 1; }
+        .hdr-user-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .hdr-user-name { font-size: 12px; font-weight: 600; color: var(--text-hi); line-height: 1; white-space: nowrap; }
         .hdr-user-role {
           font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text-lo);
           letter-spacing: 0.1em; text-transform: uppercase; line-height: 1;
@@ -275,13 +276,15 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           background: none; border: 1px solid var(--border); cursor: pointer;
           color: var(--text-lo); font-family: 'Outfit', sans-serif;
           font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-          padding: 8px 14px; border-radius: 9px; transition: all 0.18s;
+          padding: 8px 12px; border-radius: 9px; transition: all 0.18s;
+          white-space: nowrap; flex-shrink: 0;
         }
         .hdr-logout:hover {
           border-color: rgba(248,113,113,0.5); color: var(--red); background: rgba(248,113,113,0.06);
         }
         .hdr-logout svg { width: 13px; height: 13px; opacity: 0.7; transition: transform 0.2s; }
         .hdr-logout:hover svg { transform: translateX(2px); opacity: 1; }
+        .hdr-logout-text { display: inline; }
 
         .hdr-sub-bar {
           height: 2px;
@@ -290,14 +293,39 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
             rgba(129,140,248,0.4) 80%, transparent 100%);
         }
 
-        @media (max-width: 900px) {
-          .hdr-metrics      { display: none; }
-          .hdr-machine-zone { display: none; }
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+          .hdr-metrics { display: none; }
         }
+
+        @media (max-width: 768px) {
+          .hdr-root { --hdr-h: 60px; }
+          .hdr-machine-zone { display: none; }
+          .hdr-inner { padding: 0 16px; }
+          .hdr-logo-zone { padding: 0 14px; gap: 10px; }
+          .hdr-logo-ring { width: 46px; height: 46px; border-radius: 11px; }
+          .hdr-logo-img { width: 140px; height: 140px; }
+          .hdr-brand-name { font-size: 13px; }
+          .hdr-right { padding-left: 14px; gap: 8px; }
+          .hdr-logout { padding: 7px 10px; }
+        }
+
         @media (max-width: 640px) {
           .hdr-user-info { display: none; }
           .hdr-brand-tag { display: none; }
-          .hdr-inner     { padding: 0 16px; }
+          .hdr-logout-text { display: none; }
+          .hdr-logout { padding: 8px; border-radius: 8px; }
+          .hdr-logout svg { width: 15px; height: 15px; opacity: 1; }
+          .hdr-back-btn span { display: none; }
+          .hdr-back-btn { padding: 0 12px 0 0; }
+        }
+
+        @media (max-width: 400px) {
+          .hdr-logo-zone { padding: 0 10px; gap: 8px; }
+          .hdr-logo-ring { width: 38px; height: 38px; border-radius: 9px; }
+          .hdr-brand-name { font-size: 12px; }
+          .hdr-inner { padding: 0 10px; }
+          .hdr-right { padding-left: 10px; }
         }
       `}</style>
 
@@ -316,7 +344,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
-                Back
+                <span>Back</span>
               </button>
             )}
 
@@ -345,17 +373,11 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
             {/* ── Machine zone (LiveView only) ── */}
             {showMachineZone && (
               <div className="hdr-machine-zone">
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <span className="hdr-machine-name">{machineName || machineId}</span>
                   <span className="hdr-machine-id">uid: {machineId}</span>
                 </div>
 
-                {/*
-                  Three states:
-                  live       = socket open + data within 15 s
-                  offline    = socket open but no data for >15 s (machine silent)
-                  connecting = socket not yet open
-                */}
                 {!connected ? (
                   <div className="hdr-status connecting">
                     <div className="hdr-status-row">
@@ -416,8 +438,6 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
               )}
             </div>
 
-            <div className="hdr-spacer" />
-
             {/* ── User + logout ── */}
             <div className="hdr-right">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -430,7 +450,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
                 </div>
               </div>
               <button className="hdr-logout" onClick={logout}>
-                Sign out
+                <span className="hdr-logout-text">Sign out</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                   <polyline points="16 17 21 12 16 7" />

@@ -88,6 +88,12 @@ const FooterFixed = () => (
         transition: opacity 0.15s;
       }
       .ftr-secured-link:hover { opacity: 0.75; }
+
+      @media (max-width: 480px) {
+        .ftr-secured { font-size: 12px; gap: 6px; }
+        .ftr-secured-link { font-size: 13px; }
+        .ftr-secured svg { width: 12px; height: 12px; }
+      }
     `}</style>
 
     <div className="ftr-root">

@@ -57,6 +57,9 @@ const GlobalStyles = () => (
       0%   { top: 0%; }
       100% { top: 100%; }
     }
+    @keyframes spin-loader {
+      to { transform: rotate(360deg); }
+    }
 
     ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -85,6 +88,110 @@ const GlobalStyles = () => (
       width: 60vw; height: 50vh;
       background: radial-gradient(ellipse, rgba(59,130,246,0.08) 0%, transparent 70%);
       pointer-events: none; z-index: 0;
+    }
+
+    /* ── HERO ── */
+    .lv-hero {
+      background: var(--bg-surface);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 18px 28px;
+      position: relative; z-index: 1; overflow: hidden;
+    }
+    .lv-hero-inner {
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    }
+    .lv-hero-divider {
+      width: 1px; height: 40px; background: rgba(255,255,255,0.09); flex-shrink: 0;
+    }
+
+    /* ── MAIN ── */
+    .lv-main {
+      flex: 1; overflow-y: auto;
+      padding: 28px 28px 64px;
+      display: flex; flex-direction: column; gap: 32px;
+      position: relative; z-index: 1;
+    }
+
+    /* ── ALERT ZONE ── */
+    .lv-alert-zone {
+      padding: 10px 28px;
+      display: flex; flex-direction: column; gap: 8px;
+      position: relative; z-index: 1;
+    }
+
+    /* ── CONTROL CARD ── */
+    .lv-control-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 16px; padding: 20px 24px;
+    }
+    .lv-cmd-row {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .lv-status-row {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+
+    /* ── GRIDS ── */
+    .lv-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .lv-bool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .lv-count-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    /* ──────────────────────────────────────
+       RESPONSIVE
+    ────────────────────────────────────── */
+
+    /* Tablet */
+    @media (max-width: 900px) {
+      .lv-main      { padding: 20px 20px 56px; gap: 26px; }
+      .lv-hero      { padding: 16px 20px; }
+      .lv-alert-zone{ padding: 8px 20px; }
+      .lv-control-card { padding: 16px 18px; }
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .lv-main { padding: 16px 14px 48px; gap: 22px; }
+      .lv-hero { padding: 14px 14px; }
+      .lv-alert-zone { padding: 8px 14px; }
+
+      .lv-hero-inner { gap: 12px; }
+      .lv-hero-icon  { display: none; }
+      .lv-hero-name  { font-size: 15px !important; }
+      .lv-hero-divider { display: none; }
+      .lv-hero-stat-pills { gap: 10px !important; }
+
+      .lv-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .lv-bool-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .lv-count-grid { grid-template-columns: 1fr; gap: 8px; }
+
+      .lv-control-card { padding: 14px; }
+      .lv-cmd-row { gap: 8px; }
+      .lv-cmd-btn-full { flex: 1; justify-content: center !important; }
+      .lv-status-row { gap: 12px; }
+
+      .lv-alert-text { font-size: 12px !important; padding: 10px 12px !important; }
+    }
+
+    /* Small mobile */
+    @media (max-width: 400px) {
+      .lv-main { padding: 12px 10px 40px; gap: 18px; }
+      .lv-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+      .lv-bool-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .lv-hero { padding: 12px; }
+      .lv-alert-zone { padding: 6px 10px; }
     }
   `}</style>
 )
@@ -115,6 +222,7 @@ const Chip = ({ label, color, bg, icon }) => (
     textTransform: 'uppercase', padding: '5px 11px',
     borderRadius: 99, background: bg, color,
     border: `1px solid ${color}45`,
+    whiteSpace: 'nowrap',
   }}>
     {icon}{label}
   </span>
@@ -122,7 +230,7 @@ const Chip = ({ label, color, bg, icon }) => (
 
 const Section = ({ title, children, delay = 0 }) => (
   <section style={{ animation: `sweep-in 0.5s ease ${delay}s both`, position: 'relative', zIndex: 1 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
       <div style={{
         width: 3, height: 16, borderRadius: 99,
         background: 'linear-gradient(180deg, #60a5fa, #a78bfa)', flexShrink: 0,
@@ -149,7 +257,7 @@ const StatCard = ({ label, value, unit, accent = '#60a5fa', mono = false, alert 
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${alert ? accent + '50' : 'rgba(255,255,255,0.09)'}`,
-        borderRadius: 14, padding: '16px 18px',
+        borderRadius: 14, padding: '14px 16px',
         display: 'flex', flexDirection: 'column', gap: 10,
         position: 'relative', overflow: 'hidden',
         transition: 'border-color var(--transition), transform var(--transition)',
@@ -177,12 +285,13 @@ const StatCard = ({ label, value, unit, accent = '#60a5fa', mono = false, alert 
       <span style={{
         fontSize: 10, fontWeight: 700, letterSpacing: '0.13em',
         color: 'rgba(180,200,255,0.65)', textTransform: 'uppercase',
+        lineHeight: 1.3,
       }}>
         {label}
       </span>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
         <span style={{
-          fontSize: 22, fontWeight: 700, lineHeight: 1,
+          fontSize: 20, fontWeight: 700, lineHeight: 1,
           fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)',
           color: hasValue ? accent : 'rgba(255,255,255,0.18)',
           letterSpacing: mono ? '0.06em' : '-0.01em',
@@ -191,7 +300,7 @@ const StatCard = ({ label, value, unit, accent = '#60a5fa', mono = false, alert 
           {hasValue ? value : '—'}
         </span>
         {unit && hasValue && (
-          <span style={{ fontSize: 12, color: 'rgba(180,200,255,0.55)', fontWeight: 600 }}>{unit}</span>
+          <span style={{ fontSize: 11, color: 'rgba(180,200,255,0.55)', fontWeight: 600 }}>{unit}</span>
         )}
       </div>
     </div>
@@ -209,13 +318,14 @@ const BoolCard = ({ label, value, trueColor = '#34d399', falseColor = 'rgba(255,
     <div style={{
       background: 'var(--bg-card)',
       border: `1px solid ${isTrue ? color + '40' : 'rgba(255,255,255,0.09)'}`,
-      borderRadius: 14, padding: '16px 18px',
-      display: 'flex', flexDirection: 'column', gap: 12,
+      borderRadius: 14, padding: '14px 16px',
+      display: 'flex', flexDirection: 'column', gap: 10,
       transition: 'all var(--transition)',
     }}>
       <span style={{
         fontSize: 10, fontWeight: 700, letterSpacing: '0.13em',
         color: 'rgba(180,200,255,0.65)', textTransform: 'uppercase',
+        lineHeight: 1.3,
       }}>
         {label}
       </span>
@@ -223,7 +333,7 @@ const BoolCard = ({ label, value, trueColor = '#34d399', falseColor = 'rgba(255,
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LiveDot active={isTrue} color={color} size={9} />
           <span style={{
-            fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.1em',
             textTransform: 'uppercase', color,
             textShadow: isTrue ? `0 0 12px ${color}60` : 'none',
           }}>
@@ -235,6 +345,7 @@ const BoolCard = ({ label, value, trueColor = '#34d399', falseColor = 'rgba(255,
           background: isTrue ? color + '28' : 'rgba(255,255,255,0.06)',
           border: `1px solid ${isTrue ? color + '70' : 'rgba(255,255,255,0.12)'}`,
           position: 'relative', transition: 'all var(--transition)',
+          flexShrink: 0,
         }}>
           <div style={{
             position: 'absolute', top: 2, left: isTrue ? 16 : 2,
@@ -258,9 +369,9 @@ const CounterBar = ({ label, value, max = 9999, color = '#a78bfa' }) => {
     <div style={{
       background: 'var(--bg-card)',
       border: '1px solid rgba(255,255,255,0.09)',
-      borderRadius: 14, padding: '18px 20px',
+      borderRadius: 14, padding: '16px 18px',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
         <span style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '0.13em',
           color: 'rgba(180,200,255,0.65)', textTransform: 'uppercase',
@@ -268,7 +379,7 @@ const CounterBar = ({ label, value, max = 9999, color = '#a78bfa' }) => {
           {label}
         </span>
         <span style={{
-          fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)',
+          fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)',
           color, lineHeight: 1, textShadow: `0 0 16px ${color}50`,
         }}>
           {value ?? '—'}
@@ -290,7 +401,7 @@ const CounterBar = ({ label, value, max = 9999, color = '#a78bfa' }) => {
 /* ─────────────────────────────────────────────────────────
    COMMAND BUTTON
 ───────────────────────────────────────────────────────── */
-const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral' }) => {
+const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral', fullWidthOnMobile = false }) => {
   const themes = {
     success: {
       idle:  { bg: 'rgba(52,211,153,0.09)',  border: 'rgba(52,211,153,0.35)',  color: '#34d399' },
@@ -310,6 +421,7 @@ const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral' }) => {
     <button
       disabled={disabled}
       onClick={onClick}
+      className={fullWidthOnMobile ? 'lv-cmd-btn-full' : ''}
       style={{
         display: 'flex', alignItems: 'center', gap: 9,
         padding: '11px 22px', borderRadius: 10,
@@ -321,6 +433,7 @@ const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral' }) => {
         opacity: disabled ? 0.32 : 1,
         transition: 'all var(--transition)',
         textShadow: `0 0 12px ${t.idle.color}50`,
+        whiteSpace: 'nowrap',
       }}
       onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = t.hover.bg }}
       onMouseLeave={e => { e.currentTarget.style.background = t.idle.bg }}
@@ -336,7 +449,7 @@ const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral' }) => {
 ───────────────────────────────────────────────────────── */
 const UptimeDisplay = ({ ms }) => {
   if (ms == null) return (
-    <span style={{ color: 'rgba(160,180,230,0.45)', fontFamily: 'var(--font-mono)', fontSize: 20 }}>—</span>
+    <span style={{ color: 'rgba(160,180,230,0.45)', fontFamily: 'var(--font-mono)', fontSize: 18 }}>—</span>
   )
   const s   = Math.floor(ms / 1000)
   const h   = Math.floor(s / 3600)
@@ -344,7 +457,7 @@ const UptimeDisplay = ({ ms }) => {
   const sec = s % 60
   return (
     <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700,
+      fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700,
       color: '#34d399', letterSpacing: '0.06em',
       textShadow: '0 0 18px rgba(52,211,153,0.45)',
     }}>
@@ -373,9 +486,10 @@ const MachineStatusBadge = ({ status }) => {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
       fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-      textTransform: 'uppercase', padding: '6px 14px',
+      textTransform: 'uppercase', padding: '6px 12px',
       borderRadius: 99, background: s.bg, color: s.color,
       border: `1px solid ${s.color}45`,
+      whiteSpace: 'nowrap',
     }}>
       <LiveDot active={status === 'RUNNING'} color={s.color} size={6} />
       {s.label}
@@ -387,15 +501,16 @@ const MachineStatusBadge = ({ status }) => {
    ALERT BANNER
 ───────────────────────────────────────────────────────── */
 const AlertBanner = ({ color, bg, border, icon, children }) => (
-  <div style={{
+  <div className="lv-alert-text" style={{
     background: bg, border: `1px solid ${border}`,
-    borderRadius: 10, padding: '12px 18px',
+    borderRadius: 10, padding: '12px 16px',
     fontSize: 13, color,
-    display: 'flex', alignItems: 'center', gap: 10,
+    display: 'flex', alignItems: 'flex-start', gap: 10,
     fontWeight: 600, letterSpacing: '0.01em',
+    lineHeight: 1.5,
   }}>
-    <span style={{ fontSize: 14, flexShrink: 0 }}>{icon}</span>
-    {children}
+    <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+    <span>{children}</span>
   </div>
 )
 
@@ -403,22 +518,17 @@ const AlertBanner = ({ color, bg, border, icon, children }) => (
    MACHINE HERO
 ───────────────────────────────────────────────────────── */
 const MachineHero = ({ machine, machineId, decoded, displayStatus }) => (
-  <div style={{
-    background: 'var(--bg-surface)',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-    padding: '18px 32px',
-    position: 'relative', zIndex: 1, overflow: 'hidden',
-  }}>
+  <div className="lv-hero">
     <div style={{
       position: 'absolute', right: 0, top: 0, bottom: 0, width: '35%',
       background: 'linear-gradient(90deg, transparent, rgba(96,165,250,0.04))',
       pointerEvents: 'none',
     }} />
 
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+    <div className="lv-hero-inner">
 
-      {/* Machine icon */}
-      <div style={{ position: 'relative' }}>
+      {/* Machine icon — hidden on mobile */}
+      <div className="lv-hero-icon" style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
           width: 52, height: 52, borderRadius: 14,
           background: 'linear-gradient(135deg, rgba(96,165,250,0.18), rgba(167,139,250,0.18))',
@@ -434,53 +544,57 @@ const MachineHero = ({ machine, machineId, decoded, displayStatus }) => (
       </div>
 
       {/* Name + ID */}
-      <div>
-        <p style={{
-          fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em',
-          color: '#f0f4ff', lineHeight: 1.2,
+      <div style={{ minWidth: 0 }}>
+        <p className="lv-hero-name" style={{
+          fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em',
+          color: '#f0f4ff', lineHeight: 1.2, margin: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220,
         }}>
           {machine?.name || machineId}
         </p>
         <p style={{
-          fontSize: 11, color: 'rgba(160,185,240,0.65)',
+          fontSize: 10, color: 'rgba(160,185,240,0.65)',
           fontWeight: 600, letterSpacing: '0.09em',
-          textTransform: 'uppercase', marginTop: 4,
+          textTransform: 'uppercase', marginTop: 4, margin: '4px 0 0',
         }}>
-          {machine?.mode || 'PLC Controller'} &nbsp;·&nbsp; ID: {machineId}
+          {machine?.mode || 'PLC Controller'} · ID: {machineId}
         </p>
       </div>
 
-      <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.09)', flexShrink: 0 }} />
+      <div className="lv-hero-divider" />
 
       {/* Hero stat pills */}
-      {[
-        { label: 'CAN State',    val: decoded?.canState  || '—',      color: '#60a5fa', mono: false },
-        { label: 'Node ID',      val: decoded?.canNodeId ?? '—',      color: 'rgba(210,220,255,0.85)', mono: true },
-        { label: 'Status Word',  val: decoded?.statusWord != null
-            ? `0x${Number(decoded.statusWord).toString(16).toUpperCase().padStart(4,'0')}`
-            : '—',
-          color: '#a78bfa', mono: true },
-        { label: 'State',        val: decoded?.statusWordText || '—', color: '#22d3ee', mono: false },
-        { label: 'Mode',         val: decoded?.modeDisplayText || '—', color: '#fbbf24', mono: false },
-      ].map(({ label, val, color, mono }) => (
-        <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.14em',
-            color: 'rgba(160,185,240,0.55)', textTransform: 'uppercase',
-          }}>
-            {label}
-          </span>
-          <span style={{
-            fontSize: 14, fontWeight: 700, color,
-            fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)',
-            textShadow: `0 0 14px ${color}50`,
-          }}>
-            {val}
-          </span>
-        </div>
-      ))}
+      <div className="lv-hero-stat-pills" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        {[
+          { label: 'CAN State',    val: decoded?.canState  || '—',      color: '#60a5fa', mono: false },
+          { label: 'Node ID',      val: decoded?.canNodeId ?? '—',      color: 'rgba(210,220,255,0.85)', mono: true },
+          { label: 'Status Word',  val: decoded?.statusWord != null
+              ? `0x${Number(decoded.statusWord).toString(16).toUpperCase().padStart(4,'0')}`
+              : '—',
+            color: '#a78bfa', mono: true },
+          { label: 'State',        val: decoded?.statusWordText || '—', color: '#22d3ee', mono: false },
+          { label: 'Mode',         val: decoded?.modeDisplayText || '—', color: '#fbbf24', mono: false },
+        ].map(({ label, val, color, mono }) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.14em',
+              color: 'rgba(160,185,240,0.55)', textTransform: 'uppercase',
+            }}>
+              {label}
+            </span>
+            <span style={{
+              fontSize: 13, fontWeight: 700, color,
+              fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)',
+              textShadow: `0 0 14px ${color}50`,
+              whiteSpace: 'nowrap',
+            }}>
+              {val}
+            </span>
+          </div>
+        ))}
+      </div>
 
-      <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.09)', flexShrink: 0 }} />
+      <div className="lv-hero-divider" />
 
       {/* Status chips */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -507,7 +621,7 @@ const MachineHero = ({ machine, machineId, decoded, displayStatus }) => (
 )
 
 /* ─────────────────────────────────────────────────────────
-   NORMALIZE DB STATUS → DISPLAY BADGE STATUS
+   NORMALIZE DB STATUS
 ───────────────────────────────────────────────────────── */
 const normalizeDbStatus = (raw) => {
   switch ((raw || '').toLowerCase()) {
@@ -530,24 +644,16 @@ const LiveView = () => {
   const navigate                          = useNavigate()
   const { logout }                        = useAuth()
 
-  // wsDbStatus is null until the first machine_status WS event fires
   const { telemetry, decoded, connected, dbStatus: wsDbStatus } = useWebSocket(machineId)
 
   const [machine,          setMachine]          = useState(null)
   const [sending,          setSending]          = useState(false)
   const [cmdSent,          setCmdSent]          = useState(null)
-  // Seeded once from HTTP on mount so the badge is correct before any WS event arrives.
-  // Also updated by the fallback poll after a command.
   const [initialStatus,    setInitialStatus]    = useState(null)
-  // Optimistic status — set immediately on command click to bridge the WS gap.
-  // Cleared the moment WS fires a machine_status event.
   const [optimisticStatus, setOptimisticStatus] = useState(null)
 
-  // Priority chain: WS event > optimistic > HTTP seed
   const dbStatus = wsDbStatus ?? optimisticStatus ?? initialStatus
 
-  // Clear optimistic the moment WS takes over — prevents stale optimistic value
-  // from lingering after a WS machine_status event arrives.
   useEffect(() => {
     if (wsDbStatus !== null) {
       setOptimisticStatus(null)
@@ -559,7 +665,6 @@ const LiveView = () => {
       .then(res => setMachine(res.data.data))
       .catch(() => {})
 
-    // One-time HTTP seed — NOT polling. WebSocket takes over after this.
     api.get(`/dashboard/machine/${machineId}`)
       .then(res => setInitialStatus(res.data.data?.status ?? null))
       .catch(() => {})
@@ -569,8 +674,6 @@ const LiveView = () => {
     setSending(true)
     setCmdSent(cmd)
 
-    // ① Optimistic update — immediately reflect the expected new state so the
-    //    buttons respond without waiting for the WS machine_status broadcast.
     const expectedStatus = cmd === 'start' ? 'running' : 'stopped'
     setOptimisticStatus(expectedStatus)
 
@@ -584,20 +687,16 @@ const LiveView = () => {
       )
       toast.success(`Command [${cmd}] dispatched`)
 
-      // ③ Fallback poll — fires only if WS hasn't updated wsDbStatus yet.
-      //    If WS fires first, wsDbStatus wins and this write to initialStatus
-      //    has no effect on dbStatus (WS ?? optimistic ?? initialStatus).
       setTimeout(async () => {
         try {
           const res = await api.get(`/dashboard/machine/${machineId}`)
           const polledStatus = res.data.data?.status ?? null
           setInitialStatus(polledStatus)
-        } catch { /* silent — WS is the source of truth */ }
+        } catch { /* silent */ }
       }, 2500)
 
     } catch {
       toast.error(`Failed to send [${cmd}]`)
-      // ② Roll back optimistic update on failure so the UI doesn't lie.
       setOptimisticStatus(null)
     } finally {
       setSending(false)
@@ -605,10 +704,7 @@ const LiveView = () => {
     }
   }
 
-  // isRunning is driven by the resolved dbStatus (WS > optimistic > HTTP seed)
   const isRunning = ['running', 'operational'].includes((dbStatus || '').toLowerCase())
-
-  // Badge status shown in Remote Control panel
   const displayStatus = dbStatus ? normalizeDbStatus(dbStatus) : null
 
   return (
@@ -626,10 +722,7 @@ const LiveView = () => {
 
       {/* Alert banners */}
       {(!connected || decoded?.faultActive || decoded?.warningActive) && (
-        <div style={{
-          padding: '10px 32px', display: 'flex', flexDirection: 'column', gap: 8,
-          position: 'relative', zIndex: 1,
-        }}>
+        <div className="lv-alert-zone">
           {!connected && (
             <AlertBanner color="#fbbf24" bg="rgba(251,191,36,0.07)" border="rgba(251,191,36,0.28)" icon="⚠">
               WebSocket reconnecting — displaying last known telemetry
@@ -637,8 +730,8 @@ const LiveView = () => {
           )}
           {decoded?.faultActive && (
             <AlertBanner color="#f87171" bg="rgba(248,113,113,0.07)" border="rgba(248,113,113,0.28)" icon="✕">
-              Fault active — {decoded.errorText} &nbsp;
-              <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 12, color: '#fca5a5' }}>
+              Fault active — {decoded.errorText}{' '}
+              <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, color: '#fca5a5' }}>
                 ({decoded.errorCode})
               </code>
             </AlertBanner>
@@ -652,34 +745,26 @@ const LiveView = () => {
       )}
 
       {/* Main body */}
-      <main style={{
-        flex: 1, overflowY: 'auto',
-        padding: '28px 32px 64px',
-        display: 'flex', flexDirection: 'column', gap: 36,
-        position: 'relative', zIndex: 1,
-      }}>
+      <main className="lv-main">
 
         {/* ── Remote Control ── */}
         <Section title="Remote Control" delay={0}>
-          <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: 16, padding: '20px 24px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-
+          <div className="lv-control-card">
+            <div className="lv-cmd-row">
               <CmdBtn
                 label="Start" icon="▶" variant="success"
                 disabled={sending || isRunning}
                 onClick={() => handleCommand('start')}
+                fullWidthOnMobile
               />
               <CmdBtn
                 label="Stop" icon="■" variant="danger"
                 disabled={sending || !isRunning}
                 onClick={() => handleCommand('stop')}
+                fullWidthOnMobile
               />
               {sending && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {[0, 1, 2].map(i => (
                     <div key={i} style={{
                       width: 5, height: 5, borderRadius: '50%', background: '#60a5fa',
@@ -691,7 +776,7 @@ const LiveView = () => {
               )}
 
               {cmdSent && !sending && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6, animation: 'sweep-in 0.2s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, animation: 'sweep-in 0.2s ease' }}>
                   <span style={{ fontSize: 13, color: '#34d399' }}>✓</span>
                   <span style={{ fontSize: 12, color: '#34d399', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                     [{cmdSent}] dispatched
@@ -700,10 +785,10 @@ const LiveView = () => {
               )}
             </div>
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '18px 0' }} />
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '16px 0' }} />
 
-            {/* Current machine status row — sourced from resolved dbStatus */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            {/* Machine status row */}
+            <div className="lv-status-row">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ fontSize: 10, color: 'rgba(180,200,255,0.55)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                   Machine status
@@ -738,9 +823,9 @@ const LiveView = () => {
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '14px 0 0' }} />
             <p style={{
-              marginTop: 14,
-              fontSize: 12, color: 'rgba(180,200,255,0.55)',
-              fontWeight: 500, lineHeight: 1.7,
+              marginTop: 12,
+              fontSize: 12, color: 'rgba(180,200,255,0.5)',
+              fontWeight: 500, lineHeight: 1.6,
             }}>
               Commands are dispatched directly to the PLC via the CAN bus interface.
               Ensure safety conditions are met before issuing control signals.
@@ -750,7 +835,7 @@ const LiveView = () => {
 
         {/* ── CAN Bus Telemetry ── */}
         <Section title="CAN Bus Telemetry" delay={0.06}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+          <div className="lv-stat-grid">
             <StatCard label="CAN State"    value={decoded?.canState}     accent="#60a5fa" />
             <StatCard label="Node ID"      value={decoded?.canNodeId}    accent="#a78bfa" mono />
             <StatCard label="Status Word"  value={decoded?.statusWord != null
@@ -769,7 +854,7 @@ const LiveView = () => {
             <div style={{
               background: 'var(--bg-card)',
               border: '1px solid rgba(52,211,153,0.25)',
-              borderRadius: 14, padding: '16px 18px',
+              borderRadius: 14, padding: '14px 16px',
               display: 'flex', flexDirection: 'column', gap: 10,
               position: 'relative', overflow: 'hidden',
             }}>
@@ -790,7 +875,7 @@ const LiveView = () => {
 
         {/* ── Status Flags ── */}
         <Section title="Status Flags" delay={0.12}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <div className="lv-bool-grid">
             <BoolCard label="Operation Enabled" value={decoded?.operationEnabled} trueColor="#34d399" falseColor="rgba(200,215,255,0.28)" />
             <BoolCard label="Fault Active"      value={decoded?.faultActive}      trueColor="#f87171" falseColor="#34d399" />
             <BoolCard label="Warning Active"    value={decoded?.warningActive}    trueColor="#fbbf24" falseColor="#34d399" />
@@ -800,7 +885,7 @@ const LiveView = () => {
 
         {/* ── Counters ── */}
         <Section title="Message Counters" delay={0.18}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+          <div className="lv-count-grid">
             <CounterBar label="RPDO RX Counter"      value={decoded?.rpdoRxCounter}      color="#a78bfa" max={9999} />
             <CounterBar label="Telemetry TX Counter" value={decoded?.telemetryTxCounter} color="#f472b6" max={9999} />
           </div>
@@ -811,11 +896,13 @@ const LiveView = () => {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             animation: 'sweep-in 0.4s ease 0.24s both',
+            flexWrap: 'wrap',
           }}>
             <div style={{
               width: 6, height: 6, borderRadius: '50%', background: '#34d399',
               animation: 'blink-dot 2s ease-in-out infinite',
               boxShadow: '0 0 8px rgba(52,211,153,0.6)',
+              flexShrink: 0,
             }} />
             <span style={{
               fontSize: 11,

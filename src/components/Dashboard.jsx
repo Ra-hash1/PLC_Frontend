@@ -10,10 +10,10 @@ const PAGE_SIZE = 10
 const COLUMNS = [
   { key: 'index',      label: '#',         sortable: false },
   { key: 'name',       label: 'Machine',   sortable: true  },
-  { key: 'machine_id', label: 'Node ID',   sortable: true  },
-  { key: 'line_id',    label: 'Line',      sortable: true  },
+  { key: 'machine_id', label: 'Node ID',   sortable: true,  hideOnMobile: true },
+  { key: 'line_id',    label: 'Line',      sortable: true,  hideOnMobile: true },
   { key: 'status',     label: 'Status',    sortable: true  },
-  { key: 'updated',    label: 'Last Seen', sortable: false },
+  { key: 'updated',    label: 'Last Seen', sortable: false, hideOnMobile: true },
   { key: 'action',     label: '',          sortable: false },
 ]
 
@@ -52,9 +52,9 @@ const StatusBadge = ({ status }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '5px 12px', borderRadius: 99,
+      padding: '5px 10px', borderRadius: 99,
       background: s.bg, border: `1px solid ${s.border}`,
-      fontSize: 12, fontWeight: 700, letterSpacing: '0.07em', color: s.color,
+      fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: s.color,
       whiteSpace: 'nowrap',
     }}>
       <PulseDot active={s.pulse} color={s.color} />
@@ -141,7 +141,6 @@ export default function Dashboard() {
   const [sort,      setSort]      = useState({ col: null, dir: 'asc' })
   const [page,      setPage]      = useState(1)
 
-  // Holds the 30s polling interval so we can clear it on unmount / site change
   const refreshIntervalRef = useRef(null)
 
   useEffect(() => {
@@ -177,26 +176,20 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Initial fetch when site is selected
   useEffect(() => {
     if (selectedSite) fetchMachines(selectedSite)
     else setMachines([])
   }, [selectedSite, fetchMachines])
 
-  // Auto-poll every 30s — silent background refresh so badges stay current
-  // without requiring a manual refresh click
   useEffect(() => {
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current)
       refreshIntervalRef.current = null
     }
-
     if (!selectedSite) return
-
     refreshIntervalRef.current = setInterval(() => {
       fetchMachines(selectedSite, true)
     }, 30_000)
-
     return () => {
       clearInterval(refreshIntervalRef.current)
       refreshIntervalRef.current = null
@@ -251,9 +244,9 @@ export default function Dashboard() {
   }
 
   const thBase = (col) => ({
-    padding: '13px 20px',
+    padding: '13px 16px',
     textAlign: 'left',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
     letterSpacing: '0.09em',
     textTransform: 'uppercase',
@@ -352,36 +345,101 @@ export default function Dashboard() {
           border-color: rgba(96,165,250,0.3) !important;
           transform: translateY(-1px);
         }
+
+        /* ─────────────────────────────────────
+           RESPONSIVE STYLES
+        ───────────────────────────────────── */
+
+        /* Tablet */
+        @media (max-width: 900px) {
+          .dash-main { padding: 24px 24px 56px !important; }
+          .dash-topbar { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 28px !important; }
+          .dash-topbar-actions { width: 100%; justify-content: flex-end; }
+          .dash-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .dash-filter-row { flex-wrap: wrap; gap: 10px; }
+          .dash-search-wrap { max-width: 100% !important; min-width: 0 !important; flex: 1 1 200px; }
+        }
+
+        /* Mobile */
+        @media (max-width: 640px) {
+          .dash-main { padding: 16px 14px 48px !important; }
+          .dash-topbar { margin-bottom: 20px !important; }
+          .dash-topbar-title { font-size: 22px !important; }
+          .dash-topbar-desc { font-size: 13px !important; }
+          .dash-topbar-actions { gap: 8px; }
+
+          .dash-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; margin-bottom: 20px !important; }
+          .dash-stat-icon  { width: 36px !important; height: 36px !important; font-size: 15px !important; border-radius: 10px !important; }
+          .dash-stat-val   { font-size: 20px !important; }
+          .dash-stat-label { font-size: 11px !important; }
+
+          .dash-filter-row { flex-direction: column; gap: 10px; }
+          .dash-search-wrap { max-width: 100% !important; width: 100%; }
+          .dash-filter-pills { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+          .dash-filter-pills::-webkit-scrollbar { height: 0; }
+
+          .dash-col-nodeid  { display: none !important; }
+          .dash-col-line    { display: none !important; }
+          .dash-col-updated { display: none !important; }
+
+          .dash-site-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 8px !important; }
+
+          .dash-hero { padding: 18px !important; gap: 16px !important; }
+          .dash-hero-float { display: none; }
+          .dash-hero-title { font-size: 18px !important; line-height: 1.3 !important; }
+          .dash-hero-desc  { font-size: 12px !important; margin-bottom: 12px !important; }
+          .dash-hero-pills { gap: 5px !important; }
+          .dash-hero-pill  { font-size: 10px !important; padding: 4px 8px !important; }
+
+          .dash-autorefresh { display: none !important; }
+
+          .dash-row-index { display: none !important; }
+          .dash-machine-icon { display: none !important; }
+
+          .dash-pagination { padding: 10px 12px !important; flex-direction: column; gap: 8px; align-items: flex-start !important; }
+          .dash-page-nums  { flex-wrap: wrap; }
+        }
+
+        /* Small mobile */
+        @media (max-width: 400px) {
+          .dash-main { padding: 12px 10px 40px !important; }
+          .dash-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .dash-topbar-title { font-size: 19px !important; }
+          .dash-filter-pills button { padding: 6px 10px !important; font-size: 11px !important; }
+          .dash-ref-btn { padding: 9px 12px !important; }
+          .dash-back-btn { padding: 9px 12px !important; }
+          .dash-site-grid { grid-template-columns: 1fr 1fr !important; }
+        }
       `}</style>
 
       <Header />
 
-      <main style={{ flex: 1, padding: '40px 60px 60px', animation: 'fadeIn .4s ease both' }}>
+      <main className="dash-main" style={{ flex: 1, padding: '40px 48px 60px', animation: 'fadeIn .4s ease both' }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
 
           {/* ── Top bar ── */}
-          <div style={{
+          <div className="dash-topbar" style={{
             display: 'flex', alignItems: 'flex-start',
             justifyContent: 'space-between', flexWrap: 'wrap',
             gap: 20, marginBottom: 40,
           }}>
             <div>
-              <h1 style={{
+              <h1 className="dash-topbar-title" style={{
                 fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em',
                 margin: 0, color: '#f1f5f9',
                 fontFamily: '"Syne", sans-serif',
               }}>
                 Machine Dashboard
               </h1>
-              <p style={{ margin: '6px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>
+              <p className="dash-topbar-desc" style={{ margin: '6px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>
                 Monitor and control your industrial machines in real-time
               </p>
             </div>
 
             {selectedSite && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="dash-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {/* Auto-refresh indicator */}
-                <div style={{
+                <div className="dash-autorefresh" style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px', borderRadius: 10,
                   background: 'rgba(52,211,153,0.06)',
@@ -403,7 +461,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => setSelectedSite('')}
-                  className="ref-btn"
+                  className="ref-btn dash-back-btn"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 7,
                     padding: '10px 16px', borderRadius: 10,
@@ -418,7 +476,7 @@ export default function Dashboard() {
                   ← Sites
                 </button>
                 <button
-                  className="ref-btn"
+                  className="ref-btn dash-ref-btn"
                   onClick={() => fetchMachines(selectedSite, true)}
                   disabled={loading || refreshing}
                   style={{
@@ -447,7 +505,7 @@ export default function Dashboard() {
           {!selectedSite && !sitesLoading && (
             <div style={{ animation: 'fadeInUp 0.5s ease both' }}>
 
-              <div style={{
+              <div className="dash-hero" style={{
                 position: 'relative',
                 background: 'linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(10,16,32,0.95) 100%)',
                 border: '1px solid rgba(255,255,255,0.1)',
@@ -479,7 +537,8 @@ export default function Dashboard() {
                   pointerEvents: 'none',
                 }} />
 
-                <div style={{ position: 'relative', flexShrink: 0 }}>
+                {/* Floating icon — hidden on small screens via CSS */}
+                <div className="dash-hero-float" style={{ position: 'relative', flexShrink: 0 }}>
                   <div style={{
                     width: 108, height: 108,
                     borderRadius: '50%',
@@ -524,7 +583,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                <div style={{ flex: 1, position: 'relative', zIndex: 1, minWidth: 0 }}>
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 7,
                     padding: '4px 11px', borderRadius: 99,
@@ -543,7 +602,7 @@ export default function Dashboard() {
                     Industrial PLC Monitor
                   </div>
 
-                  <h2 style={{
+                  <h2 className="dash-hero-title" style={{
                     fontSize: 24, fontWeight: 800,
                     fontFamily: '"Syne", sans-serif',
                     letterSpacing: '-0.03em',
@@ -561,21 +620,21 @@ export default function Dashboard() {
                     </span>
                   </h2>
 
-                  <p style={{
+                  <p className="dash-hero-desc" style={{
                     fontSize: 13, color: 'rgba(255,255,255,0.45)',
                     margin: '0 0 18px', lineHeight: 1.6, maxWidth: 400,
                   }}>
                     Choose a production site below to view real-time machine telemetry, status, and CAN bus data.
                   </p>
 
-                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                  <div className="dash-hero-pills" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                     {[
                       { icon: '⚡', label: 'Real-time telemetry' },
                       { icon: '🔧', label: 'Remote control'      },
                       { icon: '📊', label: 'CAN bus monitoring'  },
                       { icon: '🔔', label: 'Fault detection'     },
                     ].map(f => (
-                      <div key={f.label} style={{
+                      <div key={f.label} className="dash-hero-pill" style={{
                         display: 'flex', alignItems: 'center', gap: 5,
                         padding: '5px 10px', borderRadius: 99,
                         background: 'rgba(255,255,255,0.05)',
@@ -601,7 +660,7 @@ export default function Dashboard() {
                   }}>
                     Available sites — {sites.length} location{sites.length !== 1 ? 's' : ''}
                   </p>
-                  <div style={{
+                  <div className="dash-site-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                     gap: 10,
@@ -636,7 +695,8 @@ export default function Dashboard() {
             <>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                marginBottom: 24, animation: 'fadeIn .3s ease both',
+                marginBottom: 20, animation: 'fadeIn .3s ease both',
+                flexWrap: 'wrap',
               }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -666,7 +726,7 @@ export default function Dashboard() {
               )}
 
               {!loading && machines.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+                <div className="dash-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
                   {[
                     { label: 'Total',       value: stats.total,       color: '#60a5fa', icon: '⚙' },
                     { label: 'Operational', value: stats.operational, color: '#4ade80', icon: '✓' },
@@ -676,10 +736,10 @@ export default function Dashboard() {
                     <div key={card.label} className="stat-card" style={{
                       background: 'rgba(255,255,255,0.05)',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 14, padding: '18px 22px',
-                      display: 'flex', alignItems: 'center', gap: 16,
+                      borderRadius: 14, padding: '18px 20px',
+                      display: 'flex', alignItems: 'center', gap: 14,
                     }}>
-                      <div style={{
+                      <div className="dash-stat-icon" style={{
                         width: 42, height: 42, borderRadius: 12, flexShrink: 0,
                         background: `${card.color}18`, border: `1px solid ${card.color}40`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -688,16 +748,17 @@ export default function Dashboard() {
                         {card.icon}
                       </div>
                       <div>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{card.label}</div>
+                        <div className="dash-stat-val" style={{ fontSize: 24, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</div>
+                        <div className="dash-stat-label" style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{card.label}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 380 }}>
+              {/* Search + Filter */}
+              <div className="dash-filter-row" style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="dash-search-wrap" style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 380 }}>
                   <span style={{
                     position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)',
                     fontSize: 15, color: 'rgba(255,255,255,0.45)', pointerEvents: 'none',
@@ -717,20 +778,21 @@ export default function Dashboard() {
                   />
                 </div>
 
-                <div style={{
+                <div className="dash-filter-pills" style={{
                   display: 'flex', gap: 5,
                   background: 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: 12, padding: 5,
+                  flexShrink: 0,
                 }}>
                   {FILTERS.map(f => (
                     <button key={f.value} className="fpill" onClick={() => setFilter(f.value)} style={{
                       fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
-                      padding: '7px 18px', borderRadius: 9,
+                      padding: '7px 16px', borderRadius: 9,
                       border: filter === f.value ? '1px solid rgba(96,165,250,0.35)' : '1px solid transparent',
                       background: filter === f.value ? 'rgba(96,165,250,0.12)' : 'transparent',
                       color: filter === f.value ? '#60a5fa' : 'rgba(255,255,255,0.65)',
-                      cursor: 'pointer',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
                     }}>
                       {f.label}
                     </button>
@@ -743,17 +805,23 @@ export default function Dashboard() {
                 {(filter !== 'ALL' || query) ? ` (filtered from ${machines.length})` : ''}
               </p>
 
+              {/* Table */}
               <div style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 16, overflow: 'hidden',
               }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 360 }}>
                     <thead>
                       <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
                         {COLUMNS.map(col => (
-                          <th key={col.key} className={col.sortable ? 'th-s' : ''} style={thBase(col.key)} onClick={() => col.sortable && toggleSort(col.key)}>
+                          <th
+                            key={col.key}
+                            className={`${col.sortable ? 'th-s' : ''} ${col.hideOnMobile ? `dash-col-${col.key === 'machine_id' ? 'nodeid' : col.key === 'line_id' ? 'line' : 'updated'}` : ''}`}
+                            style={thBase(col.key)}
+                            onClick={() => col.sortable && toggleSort(col.key)}
+                          >
                             {col.label}
                             {col.sortable && <SortIcon dir={sort.col === col.key ? sort.dir : null} />}
                           </th>
@@ -781,35 +849,35 @@ export default function Dashboard() {
                         </tr>
                       ) : paginated.map((m, idx) => (
                         <tr key={m.machine_id} className="mrow" onClick={() => navigate(`/machine/${m.machine_id}`)} style={{ background: 'transparent' }}>
-                          <td style={{ padding: '17px 20px', color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>
+                          <td className="dash-row-index" style={{ padding: '15px 14px', color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
                             {(page - 1) * PAGE_SIZE + idx + 1}
                           </td>
-                          <td style={{ padding: '17px 20px', verticalAlign: 'middle' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                              <div style={{
-                                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                          <td style={{ padding: '15px 14px', verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div className="dash-machine-icon" style={{
+                                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                                 background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.35)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
                               }}>⚙</div>
-                              <span className="row-name" style={{ fontWeight: 600, fontSize: 14, color: '#fff', transition: 'color .12s', whiteSpace: 'nowrap' }}>
+                              <span className="row-name" style={{ fontWeight: 600, fontSize: 13, color: '#fff', transition: 'color .12s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
                                 {m.name ?? m.machine_id}
                               </span>
                             </div>
                           </td>
-                          <td style={{ padding: '17px 20px', fontFamily: '"DM Mono","JetBrains Mono",monospace', fontSize: 13, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.6)' }}>
+                          <td className="dash-col-nodeid" style={{ padding: '15px 14px', fontFamily: '"DM Mono","JetBrains Mono",monospace', fontSize: 12, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.6)' }}>
                             {m.machine_id}
                           </td>
-                          <td style={{ padding: '17px 20px', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                          <td className="dash-col-line" style={{ padding: '15px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
                             {m.line_id ?? '—'}
                           </td>
-                          <td style={{ padding: '17px 20px' }}>
+                          <td style={{ padding: '15px 14px' }}>
                             <StatusBadge status={m.status} />
                           </td>
-                          <td style={{ padding: '17px 20px', fontFamily: '"DM Mono","JetBrains Mono",monospace', fontSize: 12, letterSpacing: '0.03em', color: 'rgba(255,255,255,0.4)' }}>
+                          <td className="dash-col-updated" style={{ padding: '15px 14px', fontFamily: '"DM Mono","JetBrains Mono",monospace', fontSize: 11, letterSpacing: '0.03em', color: 'rgba(255,255,255,0.4)' }}>
                             {fmtDate(m.last_updated)}
                           </td>
-                          <td style={{ padding: '17px 20px', textAlign: 'right' }}>
-                            <span className="row-arrow" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', transition: 'color .12s' }}>→</span>
+                          <td style={{ padding: '15px 14px', textAlign: 'right' }}>
+                            <span className="row-arrow" style={{ fontSize: 15, color: 'rgba(255,255,255,0.3)', transition: 'color .12s' }}>→</span>
                           </td>
                         </tr>
                       ))}
@@ -817,19 +885,21 @@ export default function Dashboard() {
                   </table>
                 </div>
 
+                {/* Pagination */}
                 {totalPages > 1 ? (
-                  <div style={{
+                  <div className="dash-pagination" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 18px',
                     borderTop: '1px solid rgba(255,255,255,0.08)',
                     background: 'rgba(255,255,255,0.03)',
+                    flexWrap: 'wrap', gap: 8,
                   }}>
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                       {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length} machines
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div className="dash-page-nums" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{
-                        padding: '6px 14px', borderRadius: 8,
+                        padding: '6px 12px', borderRadius: 8,
                         background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                         color: page === 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.8)',
                         fontSize: 12, fontWeight: 600, cursor: page === 1 ? 'not-allowed' : 'pointer',
@@ -848,7 +918,7 @@ export default function Dashboard() {
                         )
                       )}
                       <button className="pg-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{
-                        padding: '6px 14px', borderRadius: 8,
+                        padding: '6px 12px', borderRadius: 8,
                         background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                         color: page === totalPages ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.8)',
                         fontSize: 12, fontWeight: 600, cursor: page === totalPages ? 'not-allowed' : 'pointer',
@@ -856,9 +926,9 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{sorted.length} machine{sorted.length !== 1 ? 's' : ''}</span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Click any row to open live view</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Tap any row to open live view</span>
                   </div>
                 )}
               </div>
