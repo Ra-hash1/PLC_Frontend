@@ -1,18 +1,22 @@
-const express = require("express");
-const path = require("path");
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Serve static files from dist
+// Fix __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files
 app.use(express.static(path.join(__dirname, "dist")));
 
-// ✅ Handle React routing (VERY IMPORTANT)
+// React routing
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// ✅ Start server
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Frontend running on port ${PORT}`);
 });
