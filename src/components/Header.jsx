@@ -179,11 +179,17 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
 
         /* ── Status pill ── */
         .hdr-status {
-          display: flex; align-items: center; gap: 8px;
-          padding: 7px 16px; border-radius: 99px;
-          font-size: 11px; font-weight: 600;
-          letter-spacing: 0.1em; text-transform: uppercase; transition: all 0.3s;
-          flex-direction: column; gap: 2px; padding: 6px 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          padding: 6px 14px;
+          border-radius: 99px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          transition: all 0.3s;
         }
         .hdr-status-row {
           display: flex; align-items: center; gap: 8px;
@@ -344,10 +350,12 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
                   <span className="hdr-machine-id">uid: {machineId}</span>
                 </div>
 
-                {/* Three states:
-                    live       = socket open + data within 15 s
-                    offline    = socket open but no data for >15 s (machine silent)
-                    connecting = socket not yet open */}
+                {/*
+                  Three states:
+                  live       = socket open + data within 15 s
+                  offline    = socket open but no data for >15 s (machine silent)
+                  connecting = socket not yet open
+                */}
                 {!connected ? (
                   <div className="hdr-status connecting">
                     <div className="hdr-status-row">

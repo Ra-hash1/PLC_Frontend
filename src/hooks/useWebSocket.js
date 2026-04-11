@@ -27,11 +27,14 @@ export const useWebSocket = (machineId = DEFAULT_MACHINE_ID) => {
     switch (msg.type) {
       case 'connected':
         setConnected(true)
+        // Reset snapshot flag on every (re)connect so the next snapshot frame
+        // is correctly skipped and doesn't falsely mark the machine as live.
+        snapshotConsumedRef.current = false
         break
 
       case 'disconnected':
         setConnected(false)
-        // Reset snapshot flag so the next reconnect skips snapshot again
+        // Also reset here for symmetry / belt-and-suspenders
         snapshotConsumedRef.current = false
         break
 

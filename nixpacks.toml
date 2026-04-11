@@ -1,9 +1,0 @@
-[phases.setup]
-nixPkgs = ["nodejs_18"]
-
-[phases.caddy]
-nixPkgs = []
-cmds = []
-
-[start]
-cmd = "npx serve -s dist -l tcp://0.0.0.0:$PORT"
