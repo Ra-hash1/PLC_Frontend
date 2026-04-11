@@ -10,8 +10,8 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, "dist")));
 
-// ✅ FIXED ROUTE
-app.get("/*", (req, res) => {
+// ✅ FINAL FIX (regex route)
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
