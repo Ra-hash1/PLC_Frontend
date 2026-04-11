@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0f1117;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ─────────────────────────── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1a1d27; }
+::-webkit-scrollbar-thumb { background: #2e3650; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3d4a6b; }
+
+/* ─── Status badge colours ──────────────── */
+.badge-running  { background: #16a34a22; color: #22c55e; border: 1px solid #22c55e44; }
+.badge-stopped  { background: #d9770622; color: #f59e0b; border: 1px solid #f59e0b44; }
+.badge-fault    { background: #dc262622; color: #ef4444; border: 1px solid #ef444444; }
+.badge-offline  { background: #6b728022; color: #9ca3af; border: 1px solid #6b728044; }
+
+/* ─── Card ──────────────────────────────── */
+.card {
+  background: #1a1d27;
+  border: 1px solid #2e3650;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+/* ─── React Toastify dark theme override ── */
+.Toastify__toast {
+  background: #1a1d27 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #2e3650;
+}
