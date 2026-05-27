@@ -1672,7 +1672,8 @@ const LiveView = () => {
     () => computeApiStatus(rawApiStatus, lastSeenAt, now),
     [rawApiStatus, lastSeenAt, now],
   )
-  const isRunning   = apiStatus === 'RUNNING'
+  // WS flag responds instantly; falls back to polled apiStatus if WS flag not yet received
+  const isRunning = plcState?.actuallyRunning ?? (apiStatus === 'RUNNING')
   const networkOk   = !!lastSeenAt && (now - new Date(lastSeenAt).getTime()) <= API_STALE_MS
 
   // ── Selected drive data ───────────────────────────────────────────────────
@@ -2031,6 +2032,20 @@ const LiveView = () => {
               { label: 'Warning',      value: warningActive    ? 'YES' : 'NO' },
               { label: 'Fault Active', value: faultActive      ? 'YES' : 'NO' },
               { label: 'Remote',       value: remoteActive     ? 'YES' : 'NO' },
+              // PLC diagnostics from poll
+              {
+                label: 'Axis Error',
+                value: (pollData?.axisErrorId === 0 || pollData?.axisErrorId == null)
+                  ? 'No fault'
+                  : `0x${pollData.axisErrorId.toString(16).toUpperCase()}`,
+                color: pollData?.axisErrorId ? '#f87171' : undefined,
+              },
+              {
+                label: 'Diag Word',
+                value: pollData?.diagnosticWord != null
+                  ? `0x${pollData.diagnosticWord.toString(16).toUpperCase().padStart(4, '0')}`
+                  : '—',
+              },
             ].filter(r => r.value != null)} />
           </Section>
         </div>
