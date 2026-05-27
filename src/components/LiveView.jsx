@@ -1867,6 +1867,16 @@ const LiveView = () => {
               runtimeSeconds={runtimeSeconds}
               isRunning={isRunning}
               label="Session Runtime"
+              storedSub={
+                pollData?.totalRuntimeSeconds != null
+                  ? (() => {
+                      const t = pollData.totalRuntimeSeconds
+                      const h = Math.floor(t / 3600)
+                      const m = Math.floor((t % 3600) / 60)
+                      return `All-time: ${h}h ${String(m).padStart(2,'0')}m`
+                    })()
+                  : undefined
+              }
             />
             <ProductionCard
               sessionPouches={pollData?.sessionPouches    ?? null}
@@ -2089,6 +2099,12 @@ const LiveView = () => {
                 label="Remote Start"
                 value={plcState?.remoteStartAllowed ?? null}
                 trueColor="#60a5fa"
+                falseColor="rgba(200,215,255,0.28)"
+              />
+              <BoolCard
+                label="Feedback Fresh"
+                value={plcState?.feedbackFresh ?? null}
+                trueColor="#22d3ee"
                 falseColor="rgba(200,215,255,0.28)"
               />
             </div>
