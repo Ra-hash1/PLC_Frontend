@@ -1,0 +1,9 @@
+# Railway / nixpacks build configuration
+# Runs `npm run build` (Vite) during the build phase so the dist/ folder
+# exists before `npm start` (serve -s dist) is executed.
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
