@@ -2037,12 +2037,45 @@ const LiveView = () => {
 
         {/* ══ ROW 4: Status Flags (left) + Message Counters (right) ══ */}
         <div className="lv-twin-grid" style={{ alignItems: 'start' }}>
-          <Section title="Status Flags" delay={0.26}>
+          {/* ══ ROW 4 LEFT: PLC State Flags ══ */}
+          <Section title="PLC State Flags" delay={0.26}>
             <div className="lv-bool-grid">
-              <BoolCard label="Operation Enabled" value={operationEnabled} trueColor="#34d399" falseColor="rgba(200,215,255,0.28)" />
-              <BoolCard label="Fault Active"      value={faultActive}      trueColor="#f87171" falseColor="#34d399" />
-              <BoolCard label="Warning Active"    value={warningActive}    trueColor="#fbbf24" falseColor="#34d399" />
-              <BoolCard label="Remote Active"     value={remoteActive}     trueColor="#60a5fa" falseColor="rgba(200,215,255,0.28)" />
+              <BoolCard
+                label="Ready to Run"
+                value={plcState?.readyToRun ?? null}
+                trueColor="#34d399"
+                falseColor="rgba(200,215,255,0.28)"
+              />
+              <BoolCard
+                label="Running"
+                value={plcState?.actuallyRunning ?? null}
+                trueColor="#34d399"
+                falseColor="rgba(200,215,255,0.28)"
+              />
+              <BoolCard
+                label="Faulted"
+                value={plcState?.faulted ?? null}
+                trueColor="#f87171"
+                falseColor="#34d399"
+              />
+              <BoolCard
+                label="Stopping"
+                value={plcState?.stopping ?? null}
+                trueColor="#fbbf24"
+                falseColor="rgba(200,215,255,0.28)"
+              />
+              <BoolCard
+                label="Disabled"
+                value={plcState?.disabled ?? null}
+                trueColor="#fbbf24"
+                falseColor="rgba(200,215,255,0.28)"
+              />
+              <BoolCard
+                label="Remote Start"
+                value={plcState?.remoteStartAllowed ?? null}
+                trueColor="#60a5fa"
+                falseColor="rgba(200,215,255,0.28)"
+              />
             </div>
           </Section>
 
