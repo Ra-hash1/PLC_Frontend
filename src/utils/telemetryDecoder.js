@@ -33,21 +33,36 @@ const VEICHI_CODE_MAP = {
 }
 
 // ─── CiA 402 Status Word — bit definitions ────────────────────────────────────
+// Full 16-bit map: lower byte = standard CiA 402, upper byte = CiA 402 + VEICHI
 // Used by StatusWordBits component and decodeStatusWordText()
 export const STATUS_WORD_BITS = [
-  { key: 'RTSO',  label: 'Ready to Switch On',              mask: 0x0001, color: '#34d399' },
-  { key: 'S/ON',  label: 'Switched On',                     mask: 0x0002, color: '#34d399' },
-  { key: 'OP EN', label: 'Operation Enabled',               mask: 0x0004, color: '#34d399' },
-  { key: 'FAULT', label: 'Fault',                           mask: 0x0008, color: '#f87171' },
-  { key: 'V EN',  label: 'Voltage Enabled',                 mask: 0x0010, color: '#60a5fa' },
-  { key: 'Q-STP', label: 'Quick Stop (active low — 0 = stopping)', mask: 0x0020, color: '#fbbf24' },
-  { key: 'S-DSB', label: 'Switch On Disabled',              mask: 0x0040, color: '#fbbf24' },
-  { key: 'WARN',  label: 'Warning',                         mask: 0x0080, color: '#fbbf24' },
+  // ── Lower byte — standard CiA 402 state machine ───────────────────────────
+  { key: 'RTSO',  label: 'Ready to Switch On',                      mask: 0x0001, color: '#34d399' },
+  { key: 'S/ON',  label: 'Switched On',                             mask: 0x0002, color: '#34d399' },
+  { key: 'OP EN', label: 'Operation Enabled',                       mask: 0x0004, color: '#34d399' },
+  { key: 'FAULT', label: 'Fault',                                   mask: 0x0008, color: '#f87171' },
+  { key: 'V EN',  label: 'Voltage Enabled',                         mask: 0x0010, color: '#60a5fa' },
+  { key: 'Q-STP', label: 'Quick Stop (active low — 0 = stopping)',  mask: 0x0020, color: '#fbbf24' },
+  { key: 'S-DSB', label: 'Switch On Disabled',                      mask: 0x0040, color: '#fbbf24' },
+  { key: 'WARN',  label: 'Warning',                                 mask: 0x0080, color: '#fbbf24' },
+  // ── Upper byte — CiA 402 standard (bits 8-11) + VEICHI specific (12-15) ───
+  { key: 'MS1',   label: 'Manufacturer Specific (bit 8)',           mask: 0x0100, color: '#a78bfa' },
+  { key: 'REM',   label: 'Remote — drive accepting remote commands',mask: 0x0200, color: '#60a5fa' },
+  { key: 'T-RCH', label: 'Target Reached',                         mask: 0x0400, color: '#34d399' },
+  { key: 'I-LIM', label: 'Internal Limit Active',                   mask: 0x0800, color: '#fbbf24' },
+  { key: 'MS2',   label: 'Manufacturer Specific (bit 12)',          mask: 0x1000, color: '#a78bfa' },
+  { key: 'MS3',   label: 'Manufacturer Specific (bit 13)',          mask: 0x2000, color: '#a78bfa' },
+  { key: 'MS4',   label: 'Manufacturer Specific (bit 14)',          mask: 0x4000, color: '#a78bfa' },
+  { key: 'MS5',   label: 'Manufacturer Specific (bit 15)',          mask: 0x8000, color: '#a78bfa' },
 ]
 
 // ─── Status Word Decoder ──────────────────────────────────────────────────────
+// Returns primary CiA 402 state name + optional suffix for notable upper bits.
+// Example: 0x1637 → "Operation enabled · Remote · Target reached"
 export function decodeStatusWordText(statusWord) {
   const sw = statusWord ?? 0
+
+  // ── Lower byte: CiA 402 state machine ────────────────────────────────────
   const readyToSwitchOn  = !!(sw & 0x0001)
   const switchedOn       = !!(sw & 0x0002)
   const operationEnabled = !!(sw & 0x0004)
@@ -57,13 +72,22 @@ export function decodeStatusWordText(statusWord) {
   const switchOnDisabled = !!(sw & 0x0040)
   const warning          = !!(sw & 0x0080)
 
-  if (fault)                          return 'Fault'
-  if (operationEnabled)               return 'Operation enabled'
-  if (switchedOn && voltageEnabled)   return 'Switched on'
-  if (readyToSwitchOn && quickStop)   return 'Ready to switch on'
-  if (switchOnDisabled)               return 'Switch on disabled'
-  if (warning)                        return 'Warning active'
-  return 'Unknown state'
+  let state
+  if (fault)                          state = 'Fault'
+  else if (operationEnabled)          state = 'Operation enabled'
+  else if (switchedOn && voltageEnabled) state = 'Switched on'
+  else if (readyToSwitchOn && quickStop) state = 'Ready to switch on'
+  else if (switchOnDisabled)          state = 'Switch on disabled'
+  else if (warning)                   state = 'Warning active'
+  else                                state = 'Unknown state'
+
+  // ── Upper byte: notable CiA 402 bits appended as suffix ──────────────────
+  const suffixes = []
+  if (sw & 0x0200) suffixes.push('Remote')
+  if (sw & 0x0400) suffixes.push('Target reached')
+  if (sw & 0x0800) suffixes.push('Limit active')
+
+  return suffixes.length > 0 ? `${state} · ${suffixes.join(' · ')}` : state
 }
 
 // ─── Mode Display Decoder ─────────────────────────────────────────────────────
