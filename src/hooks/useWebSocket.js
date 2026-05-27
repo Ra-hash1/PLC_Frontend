@@ -44,6 +44,15 @@ export const useWebSocket = (
   useEffect(() => {
     snapshotConsumedRef.current = false
     setLastDataAt(null)
+    setPlcState({
+      feedbackFresh:      null,
+      readyToRun:         null,
+      actuallyRunning:    null,
+      faulted:            null,
+      stopping:           null,
+      disabled:           null,
+      remoteStartAllowed: null,
+    })
   }, [machineId])
 
   const handler = useCallback((msg) => {
