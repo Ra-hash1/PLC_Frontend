@@ -1,4 +1,4 @@
-// websocket.js
+// websocket.js — aligned with mobile app protocol (action-based subscribe)
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5000'
 
@@ -9,33 +9,50 @@ class WebSocketService {
     this.reconnectTimer  = null
     this.shouldReconnect = true
     this.reconnectDelay  = 3000
-    this.machineId       = null
+    this.subscription    = null   // { siteId, lineId, machineId }
     this.pingInterval    = null
   }
 
-  connect(machineId, onMessage) {
+  // ── Public API ─────────────────────────────────────────────────────────────
+
+  /**
+   * Register a message handler and open / reuse a connection.
+   * subscription: { siteId, lineId, machineId }
+   */
+  connect(subscription, onMessage) {
     if (onMessage) this.handlers.add(onMessage)
 
-    // Don't connect if machineId is not real yet
+    const { machineId, siteId = '', lineId = '' } = subscription || {}
     if (!machineId || machineId === '__none__') return
 
-    // Prevent duplicate connection (Strict Mode safe)
-    if (this.ws?.readyState === WebSocket.CONNECTING) {
-      return
-    }
+    // Prevent duplicate connection while already connecting
+    if (this.ws?.readyState === WebSocket.CONNECTING) return
 
-    // Already connected to same machine
+    // If same machine is already open, just confirm connected
     if (
-      this.machineId === machineId &&
+      this.subscription?.machineId === machineId &&
       this.ws?.readyState === WebSocket.OPEN
     ) {
       if (onMessage) onMessage({ type: 'connected' })
       return
     }
 
-    this.machineId       = machineId
+    this.subscription    = { siteId, lineId, machineId }
     this.shouldReconnect = true
     this._createConnection()
+  }
+
+  /**
+   * Send an updated subscription (e.g. after siteId/lineId load from API).
+   * Re-sends subscribe over the open socket without reconnecting.
+   */
+  resubscribe(subscription) {
+    const { siteId = '', lineId = '', machineId } = subscription || {}
+    if (!machineId) return
+    this.subscription = { siteId, lineId, machineId }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ action: 'subscribe', siteId, lineId, machineId }))
+    }
   }
 
   disconnect(onMessage) {
@@ -52,10 +69,7 @@ class WebSocketService {
       this._clearHeartbeat()
 
       if (this.ws) {
-        if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.close()
-        }
-
+        if (this.ws.readyState === WebSocket.OPEN) this.ws.close()
         this.ws.onopen    = null
         this.ws.onmessage = null
         this.ws.onerror   = null
@@ -65,11 +79,15 @@ class WebSocketService {
     }
   }
 
+  isConnected() {
+    return this.ws?.readyState === WebSocket.OPEN
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
   _createConnection() {
     if (this.ws) {
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.close()
-      }
+      if (this.ws.readyState === WebSocket.OPEN) this.ws.close()
       this.ws = null
     }
 
@@ -78,12 +96,11 @@ class WebSocketService {
     this.ws.onopen = () => {
       this.reconnectDelay = 3000
 
-      this.ws.send(
-        JSON.stringify({
-          type:      'subscribe',
-          machineId: this.machineId,
-        })
-      )
+      // Send subscribe in mobile-app format
+      const { siteId = '', lineId = '', machineId } = this.subscription || {}
+      if (machineId) {
+        this.ws.send(JSON.stringify({ action: 'subscribe', siteId, lineId, machineId }))
+      }
 
       this._startHeartbeat()
       this.handlers.forEach(h => h({ type: 'connected' }))
@@ -91,8 +108,32 @@ class WebSocketService {
 
     this.ws.onmessage = (event) => {
       try {
-        const parsed = JSON.parse(event.data)
+        const parsed = typeof event.data === 'string'
+          ? JSON.parse(event.data)
+          : event.data
+
+        // Drop API-Gateway Forbidden responses
+        if (parsed?.message === 'Forbidden') return
+
+        // Map mobile-style message types to web handler events
+        const rawType = parsed?.type
+
+        if (rawType === 'subscribed') {
+          // Backend confirmed subscription — treat as connected
+          this.handlers.forEach(h => h({ type: 'connected' }))
+          return
+        }
+
+        if (rawType === 'snapshot') {
+          // Initial DB snapshot — forward as telemetry snapshot
+          const payload = parsed?.data ?? parsed
+          this.handlers.forEach(h => h({ type: 'snapshot', data: payload }))
+          return
+        }
+
+        // All other messages are forwarded as-is (telemetry, machine_status, alarm, etc.)
         this.handlers.forEach(h => h(parsed))
+
       } catch (e) {
         console.error('❌ WS parse error:', e)
       }
@@ -129,10 +170,6 @@ class WebSocketService {
       clearInterval(this.pingInterval)
       this.pingInterval = null
     }
-  }
-
-  isConnected() {
-    return this.ws?.readyState === WebSocket.OPEN
   }
 }
 
