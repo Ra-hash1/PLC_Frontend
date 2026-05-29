@@ -9,8 +9,33 @@ import api from '../services/api'
 import { STATUS_WORD_BITS } from '../utils/telemetryDecoder'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_STALE_MS = 2 * 60 * 1000   // 2 min → POWER OFF
+const API_STALE_MS  = 2 * 60 * 1000   // 2 min → POWER OFF
+const IST_OFFSET_MS = 5.5 * 3600000   // UTC+05:30
+
 const pad2 = (n) => String(Math.floor(n)).padStart(2, '0')
+
+// Date → "YYYY-MM-DDTHH:mm" in IST (for datetime-local inputs)
+const toISTInput = (d) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16)
+
+// datetime-local string (treated as IST) → UTC ISO string (for API queries)
+const istToUTC = (s) => new Date(s + ':00+05:30').toISOString()
+
+// UTC timestamp string → "YYYY-MM-DD HH:mm:ss.SSS+05:30" (matches DB format, for CSV)
+const fmtIST = (ts) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return isNaN(d.getTime()) ? String(ts)
+    : new Date(d.getTime() + IST_OFFSET_MS).toISOString().replace('T', ' ').slice(0, 23) + '+05:30'
+}
+
+// Milliseconds → human ETA string
+const fmtETA = (ms) => {
+  if (!ms || ms <= 0 || !isFinite(ms)) return ''
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `~${s}s`
+  const m = Math.floor(s / 60), rs = s % 60
+  return rs > 0 ? `~${m}m ${rs}s` : `~${m}m`
+}
 
 const formatUptime = (ms) => {
   if (!ms || ms <= 0) return null
@@ -1667,6 +1692,15 @@ const LiveView = () => {
   // ── Drive selection ──
   const [selectedDriveId, setSelectedDriveId] = useState(1)
 
+  // ── CSV export ──
+  const [csvOpen,     setCsvOpen]     = useState(false)
+  const [csvFrom,     setCsvFrom]     = useState(() => toISTInput(new Date(Date.now() - 86400000)))
+  const [csvTo,       setCsvTo]       = useState(() => toISTInput(new Date()))
+  const [csvLoading,  setCsvLoading]  = useState(false)
+  const [csvProgress, setCsvProgress] = useState(0)
+  const [csvEta,      setCsvEta]      = useState('')
+  const [csvTotal,    setCsvTotal]    = useState(0)
+
   // ── Derived status ────────────────────────────────────────────────────────
   const apiStatus = useMemo(
     () => computeApiStatus(rawApiStatus, lastSeenAt, now),
@@ -1678,7 +1712,7 @@ const LiveView = () => {
 
   // ── Selected drive data ───────────────────────────────────────────────────
   const selectedDrive = servos.find(s => s.servoId === selectedDriveId) ?? servos[0] ?? null
-  const alarmDrives   = servos.filter(s => s.faultActive || s.warningActive || (s.errorCode && s.errorCode !== 0))
+  const alarmDrives   = servos.filter(s => (s.errorCode ?? 0) !== 0)
 
   const errorText        = selectedDrive?.errorText    ?? decoded?.errorText     ?? '--'
   const statusWordText   = selectedDrive?.statusWordText   ?? decoded?.statusWordText   ?? '--'
@@ -1777,6 +1811,108 @@ const LiveView = () => {
     }
   }
 
+  const handleExportCsv = async () => {
+    setCsvLoading(true)
+    setCsvProgress(0)
+    setCsvEta('')
+    setCsvTotal(0)
+
+    const BATCH = 10000
+
+    const COLS = [
+      ['Timestamp (IST)',       r => fmtIST(r.ts)],
+      ['Machine ID',            r => r.machineId || ''],
+      ['Machine Running',       r => r.machineActuallyRunning ?? ''],
+      ['Status Word',           r => r.statusWord != null ? `0x${Number(r.statusWord).toString(16).toUpperCase().padStart(4,'0')}` : ''],
+      ['Error Code',            r => r.errorCode ?? ''],
+      ['CAN State',             r => r.canState || ''],
+      ['Feedback Fresh',        r => r.plcFeedbackFresh ?? ''],
+      ['Ready to Run',          r => r.machineReadyToRun ?? ''],
+      ['Actually Running',      r => r.machineActuallyRunning ?? ''],
+      ['Faulted',               r => r.machineFaulted ?? ''],
+      ['Stopping',              r => r.machineStopping ?? ''],
+      ['Disabled',              r => r.machineDisabled ?? ''],
+      ['Remote Start Allowed',  r => r.remoteStartAllowed ?? ''],
+      ['Pouch Counter',         r => r.pouchCounter ?? ''],
+      ['Session Pouches',       r => r.sessionPouches ?? ''],
+      ['Total Pouches',         r => r.totalPouches ?? ''],
+      ['Production Rate (ppm)', r => r.productionRatePpm ?? ''],
+      ['Session Runtime (s)',   r => r.sessionRuntimeSeconds ?? ''],
+      ['Total Runtime (s)',     r => r.totalRuntimeSeconds ?? ''],
+      ['Axis Error ID',         r => r.axisErrorId ?? ''],
+      ['Diagnostic Word',       r => r.diagnosticWord ?? ''],
+      ['Device Uptime (ms)',    r => r.deviceUptimeMs ?? ''],
+      ['Cycle Count',           r => r.cycleCount ?? ''],
+    ]
+
+    const cell = (v) => {
+      const s = String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    try {
+      const fromUTC = istToUTC(csvFrom)
+      const toUTC   = istToUTC(csvTo)
+
+      // Step 1: get total row count for progress tracking
+      const countRes = await api.get(`/telemetry/${machineId}/count`, { params: { from: fromUTC, to: toUTC } })
+      const total    = countRes.data?.data?.count ?? 0
+      if (total === 0) { toast.info('No telemetry data in the selected range'); return }
+      setCsvTotal(total)
+
+      // Step 2: cursor-based pagination — O(log n) per batch, safe against concurrent inserts
+      const parts   = [COLS.map(([h]) => h).join(',')]
+      let fetched   = 0
+      let lastId    = null   // PK cursor; null = first page
+      const startMs = Date.now()
+
+      while (fetched < total) {
+        const params = { from: fromUTC, to: toUTC, limit: BATCH }
+        if (lastId !== null) params.after_id = lastId
+
+        const res  = await api.get(`/telemetry/${machineId}/history`, { params })
+        const rows = res.data?.data ?? []
+        if (rows.length === 0) break
+
+        rows.forEach(r => parts.push(COLS.map(([, fn]) => cell(fn(r))).join(',')))
+
+        lastId  = rows[rows.length - 1].id   // advance cursor to last row's PK
+        fetched += rows.length
+
+        const pct     = Math.min(Math.round((fetched / total) * 100), 99)
+        const elapsed = Date.now() - startMs
+        const etaMs   = elapsed > 0 ? (total - fetched) * (elapsed / fetched) : 0
+        setCsvProgress(pct)
+        setCsvEta(fmtETA(etaMs))
+
+        if (rows.length < BATCH) break
+      }
+
+      // Step 3: trigger download
+      setCsvProgress(100)
+      setCsvEta('')
+      const blob = new Blob([parts.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `telemetry_${machineId}_${csvFrom.replace(/:/g, '-')}_to_${csvTo.replace(/:/g, '-')}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(`Exported ${fetched.toLocaleString('en-IN')} rows`)
+      setCsvOpen(false)
+    } catch (err) {
+      toast.error('Export failed — ' + (err?.response?.data?.error || 'check network or reduce date range'))
+    } finally {
+      setCsvLoading(false)
+      setCsvProgress(0)
+      setCsvEta('')
+      setCsvTotal(0)
+    }
+  }
+
   const handleBatchCutterChange = async (state) => {
     setBatchCutterState(state)
     if (isRunning) {
@@ -1793,7 +1929,8 @@ const LiveView = () => {
   // RENDER
   // ─────────────────────────────────────────────────────────
 
-  const anyAlert = !connected || faultActive || warningActive || alarmDrives.length > 0
+  const realFault = faultActive && errorText !== 'No fault' && errorText !== '--'
+  const anyAlert  = !connected || realFault || warningActive || alarmDrives.length > 0
 
   return (
     <div className="lv-root">
@@ -1831,7 +1968,7 @@ const LiveView = () => {
               {alarmDrives.map(d => `D${d.servoId}: ${d.errorText}`).join(' · ')}
             </AlertBanner>
           )}
-          {faultActive && alarmDrives.length === 0 && (
+          {realFault && alarmDrives.length === 0 && (
             <AlertBanner color="#f87171" bg="rgba(248,113,113,0.07)" border="rgba(248,113,113,0.28)" icon="✕">
               Fault active — {errorText}
             </AlertBanner>
@@ -2017,7 +2154,8 @@ const LiveView = () => {
                 accent="#a78bfa" mono />
               <StatCard label="Drive State" value={statusWordText}     accent="#22d3ee" />
               <StatCard label="Error Code"  value={errorText}
-                accent={faultActive ? '#f87171' : '#34d399'} alert={faultActive} />
+                accent={errorText !== 'No fault' && errorText !== '--' ? '#f87171' : '#34d399'}
+                alert={errorText !== 'No fault' && errorText !== '--'} />
               {modeDisplayText && modeDisplayText !== '—' && (
                 <StatCard label="Mode"      value={modeDisplayText}    accent="#fbbf24" />
               )}
@@ -2034,7 +2172,7 @@ const LiveView = () => {
             delay={0.22}
           >
             <DiagCard rows={[
-              { label: 'Fault',        value: errorText,       color: faultActive      ? '#f87171' : undefined },
+              { label: 'Fault',        value: errorText,       color: (errorText !== 'No fault' && errorText !== '--') ? '#f87171' : undefined },
               { label: 'Mode',         value: modeDisplayText !== '—' ? modeDisplayText : null },
               { label: 'Network',      value: networkOk ? 'ONLINE' : 'OFFLINE' },
               { label: 'CAN State',    value: canState },
@@ -2137,6 +2275,110 @@ const LiveView = () => {
             </span>
           </div>
         )}
+
+        {/* ══ CSV Export ══ */}
+        <div style={{ animation: 'sweep-in 0.4s ease 0.36s both', marginTop: 8 }}>
+          {!csvOpen ? (
+            <button
+              onClick={() => {
+                setCsvFrom(toISTInput(new Date(Date.now() - 86400000)))
+                setCsvTo(toISTInput(new Date()))
+                setCsvOpen(true)
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '7px 16px', borderRadius: 'var(--radius-sm)',
+                background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)',
+                color: '#93c5fd', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-display)',
+                cursor: 'pointer', letterSpacing: '0.04em', transition: 'var(--transition)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(96,165,250,0.15)'; e.currentTarget.style.borderColor = 'rgba(96,165,250,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(96,165,250,0.08)'; e.currentTarget.style.borderColor = 'rgba(96,165,250,0.25)' }}
+            >
+              ↓ Export CSV
+            </button>
+          ) : (
+            <div style={{
+              padding: '16px 20px', borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-card)', border: '1px solid var(--border-mid)',
+              animation: 'sweep-in 0.2s ease', display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+              {/* Date/time range row */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 14 }}>
+                {[['From (IST)', csvFrom, setCsvFrom], ['To (IST)', csvTo, setCsvTo]].map(([label, val, setter]) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      {label}
+                    </label>
+                    <input
+                      type="datetime-local" value={val} onChange={e => setter(e.target.value)}
+                      disabled={csvLoading}
+                      style={{
+                        padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg-inset)', border: '1px solid var(--border-dim)',
+                        color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)',
+                        outline: 'none', colorScheme: 'dark',
+                      }}
+                    />
+                  </div>
+                ))}
+
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    onClick={handleExportCsv} disabled={csvLoading}
+                    style={{
+                      padding: '8px 20px', borderRadius: 'var(--radius-sm)',
+                      background: csvLoading ? 'rgba(96,165,250,0.08)' : 'rgba(96,165,250,0.18)',
+                      border: '1px solid rgba(96,165,250,0.4)',
+                      color: csvLoading ? 'rgba(147,197,253,0.5)' : '#93c5fd',
+                      fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-display)',
+                      cursor: csvLoading ? 'not-allowed' : 'pointer',
+                      letterSpacing: '0.05em', transition: 'var(--transition)',
+                    }}
+                  >
+                    ↓ Download
+                  </button>
+                  <button
+                    onClick={() => { if (!csvLoading) setCsvOpen(false) }}
+                    style={{
+                      padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                      background: 'transparent', border: '1px solid var(--border-dim)',
+                      color: 'var(--text-muted)', fontSize: 12, fontWeight: 600,
+                      fontFamily: 'var(--font-display)', cursor: csvLoading ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress bar — shown only while fetching */}
+              {csvLoading && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ height: 5, background: 'rgba(96,165,250,0.10)', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${csvProgress}%`,
+                      background: 'linear-gradient(90deg, #60a5fa, #22d3ee)',
+                      borderRadius: 99,
+                      transition: 'width 0.35s ease',
+                    }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'rgba(148,163,252,0.85)' }}>
+                    <span style={{ fontWeight: 700 }}>{csvProgress}%</span>
+                    {csvTotal > 0 && (
+                      <span style={{ color: 'rgba(148,163,252,0.6)' }}>
+                        {Math.round(csvProgress / 100 * csvTotal).toLocaleString('en-IN')} / {csvTotal.toLocaleString('en-IN')} rows
+                      </span>
+                    )}
+                    {csvEta && <span style={{ color: 'rgba(148,163,252,0.6)' }}>· {csvEta} remaining</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
       </main>
     </div>
