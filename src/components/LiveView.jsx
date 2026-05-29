@@ -1435,6 +1435,291 @@ const DriveSummaryPanel = ({ drive, isPrimary = false }) => {
           </>
         )}
       </div>
+
+      {/* ── Extended v5 fields: axis state flags + load/torque ── */}
+      {/* Only render this section when at least one v5 field is present */}
+      {(drive.readyToRun != null || drive.actuallyRunning != null || drive.loadPercent != null || drive.torqueActual != null) && (
+        <>
+          {/* Motion / axis state flags */}
+          {(drive.readyToRun != null || drive.actuallyRunning != null || drive.faulted != null ||
+            drive.stopping != null || drive.standstill != null || drive.disabled != null ||
+            drive.homing != null || drive.feedbackFresh != null) && (() => {
+            const axisFlags = [
+              { key: 'RDY',   label: 'Ready to Run',    val: drive.readyToRun,      color: '#34d399' },
+              { key: 'RUN',   label: 'Actually Running', val: drive.actuallyRunning, color: '#34d399' },
+              { key: 'FLT',   label: 'Faulted',          val: drive.faulted,         color: '#f87171' },
+              { key: 'STP',   label: 'Stopping',         val: drive.stopping,        color: '#fbbf24' },
+              { key: 'STND',  label: 'Standstill',       val: drive.standstill,      color: '#60a5fa' },
+              { key: 'DSB',   label: 'Disabled',         val: drive.disabled,        color: '#fbbf24' },
+              { key: 'HOM',   label: 'Homing',           val: drive.homing,          color: '#a78bfa' },
+              { key: 'FRESH', label: 'Feedback Fresh',   val: drive.feedbackFresh,   color: '#22d3ee' },
+            ].filter(f => f.val != null)
+            if (!axisFlags.length) return null
+            return (
+              <div style={{
+                padding: '10px 18px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                borderTop: '1px solid rgba(80,110,200,0.08)',
+                background: 'rgba(80,110,200,0.015)',
+              }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, color: 'rgba(140,165,230,0.45)',
+                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                  alignSelf: 'center', marginRight: 4, flexShrink: 0,
+                }}>Axis</span>
+                {axisFlags.map(({ key, label, val, color }) => (
+                  <span
+                    key={key}
+                    title={label}
+                    style={{
+                      fontSize: 8, fontWeight: 800, padding: '3px 7px',
+                      borderRadius: 5, letterSpacing: '0.07em', cursor: 'default',
+                      background: val ? color + '22' : 'rgba(80,110,200,0.06)',
+                      color:       val ? color       : 'rgba(120,145,195,0.28)',
+                      border: `1px solid ${val ? color + '55' : 'rgba(80,110,200,0.12)'}`,
+                      boxShadow: val ? `0 0 8px ${color}30` : 'none',
+                    }}
+                  >
+                    {key}
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
+
+          {/* Torque + Load row */}
+          {(drive.torqueActual != null || drive.loadPercent != null ||
+            drive.continuousMotion != null || drive.discreteMotion != null || drive.syncMotion != null) && (
+            <div style={{
+              padding: '10px 18px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center',
+              borderTop: '1px solid rgba(80,110,200,0.08)',
+              background: 'rgba(80,110,200,0.02)',
+            }}>
+              {drive.torqueActual != null && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(140,165,230,0.45)', textTransform: 'uppercase' }}>
+                    Torque
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24', fontFamily: 'var(--font-mono)', letterSpacing: '0.03em' }}>
+                    {drive.torqueActual.toFixed(1)}
+                    {drive.torqueNegative && <span style={{ fontSize: 9, color: '#f87171', marginLeft: 3 }}>◀</span>}
+                  </span>
+                </div>
+              )}
+              {drive.loadPercent != null && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(140,165,230,0.45)', textTransform: 'uppercase' }}>
+                    Load
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                      color: drive.loadPercent > 90 ? '#f87171' : drive.loadPercent > 70 ? '#fbbf24' : '#34d399',
+                    }}>
+                      {drive.loadPercent.toFixed(1)}%
+                    </span>
+                    {/* Mini load bar */}
+                    <div style={{ width: 48, height: 4, background: 'rgba(80,110,200,0.15)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${Math.min(drive.loadPercent, 100)}%`,
+                        background: drive.loadPercent > 90 ? '#f87171' : drive.loadPercent > 70 ? '#fbbf24' : '#34d399',
+                        borderRadius: 99,
+                        transition: 'width 0.4s ease',
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Motion mode pills */}
+              {(drive.continuousMotion != null || drive.discreteMotion != null || drive.syncMotion != null) && (
+                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                  {[
+                    { key: 'CONT', label: 'Continuous Motion', val: drive.continuousMotion },
+                    { key: 'DISC', label: 'Discrete Motion',   val: drive.discreteMotion },
+                    { key: 'SYNC', label: 'Sync Motion',       val: drive.syncMotion },
+                  ].filter(f => f.val != null).map(({ key, label, val }) => (
+                    <span key={key} title={label} style={{
+                      fontSize: 8, fontWeight: 800, padding: '3px 6px',
+                      borderRadius: 4, letterSpacing: '0.06em',
+                      background: val ? 'rgba(96,165,250,0.18)' : 'rgba(80,110,200,0.06)',
+                      color: val ? '#60a5fa' : 'rgba(120,145,195,0.28)',
+                      border: `1px solid ${val ? 'rgba(96,165,250,0.45)' : 'rgba(80,110,200,0.12)'}`,
+                    }}>{key}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────
+   CANOPEN NODES PANEL
+   Shows per-node health for all nodes on the CAN bus.
+   Rendered only when canopenNodes[] has at least one entry.
+───────────────────────────────────────────────────────── */
+const CANopenNodesPanel = ({ nodes }) => {
+  if (!nodes || nodes.length === 0) return null
+
+  const nmtColor = (state) => {
+    const s = (state || '').toUpperCase()
+    if (s === 'OPERATIONAL')     return '#34d399'
+    if (s === 'PRE_OPERATIONAL') return '#fbbf24'
+    if (s === 'STOPPED')         return '#f87171'
+    return 'rgba(180,200,255,0.35)'
+  }
+
+  return (
+    <div style={{
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border-dim)',
+      borderRadius: 16, overflow: 'hidden',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.28)',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 20px',
+        background: 'linear-gradient(90deg, rgba(96,165,250,0.05), transparent 60%)',
+        borderBottom: '1px solid rgba(80,110,200,0.12)',
+      }}>
+        <span style={{ fontSize: 16, color: 'rgba(96,165,250,0.70)' }}>⬡</span>
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: 'rgba(200,220,255,0.80)',
+          letterSpacing: '0.04em',
+        }}>
+          CANopen Nodes
+        </span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 99,
+          background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.30)',
+          color: '#93c5fd', letterSpacing: '0.1em',
+        }}>
+          {nodes.length} NODE{nodes.length !== 1 ? 'S' : ''}
+        </span>
+        <div style={{ flex: 1 }} />
+        {/* Online count */}
+        {nodes.some(n => n.online != null) && (() => {
+          const onlineCount = nodes.filter(n => n.online === true).length
+          return (
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: '#34d399',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <LiveDot active color="#34d399" size={5} />
+              {onlineCount}/{nodes.length} online
+            </span>
+          )
+        })()}
+      </div>
+
+      {/* Node grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+        gap: 1,
+        background: 'rgba(80,110,200,0.08)',
+      }}>
+        {nodes.map((node) => {
+          const hasFault   = node.faultActive || node.errorCode !== 0
+          const isOnline   = node.online ?? (node.heartbeatActive ?? null)
+          const color      = hasFault ? '#f87171'
+                           : isOnline === false ? '#fbbf24'
+                           : isOnline === true  ? nmtColor(node.nmtState)
+                           : 'rgba(180,200,255,0.40)'
+
+          return (
+            <div key={node.nodeId} style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              {/* Node ID + NMT state */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  background: `${color}18`, border: `1px solid ${color}45`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 900, color, fontFamily: 'var(--font-mono)' }}>
+                    {node.nodeId}
+                  </span>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, margin: 0, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {node.nmtState || 'UNKNOWN'}
+                  </p>
+                  <p style={{ fontSize: 9, margin: '2px 0 0', color: 'rgba(140,165,230,0.45)', fontFamily: 'var(--font-mono)' }}>
+                    Node {node.nodeId}
+                    {node.online != null && (
+                      <span style={{ marginLeft: 5, color: node.online ? '#34d399' : '#fbbf24' }}>
+                        {node.online ? '● online' : '○ offline'}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Error row */}
+              <div style={{
+                fontSize: 10, fontWeight: node.errorCode !== 0 ? 700 : 400,
+                color: node.errorCode !== 0 ? '#f87171' : 'rgba(180,200,255,0.40)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }} title={node.errorText}>
+                {node.errorText || 'No fault'}
+              </div>
+
+              {/* Load / torque */}
+              {(node.loadPercent != null || node.torqueActual != null) && (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {node.loadPercent != null && (
+                    <div>
+                      <div style={{ fontSize: 8, color: 'rgba(140,165,230,0.45)', letterSpacing: '0.1em', marginBottom: 3 }}>LOAD</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                          color: node.loadPercent > 90 ? '#f87171' : node.loadPercent > 70 ? '#fbbf24' : '#34d399',
+                        }}>
+                          {node.loadPercent.toFixed(1)}%
+                        </span>
+                        <div style={{ width: 32, height: 3, background: 'rgba(80,110,200,0.15)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${Math.min(node.loadPercent, 100)}%`,
+                            background: node.loadPercent > 90 ? '#f87171' : node.loadPercent > 70 ? '#fbbf24' : '#34d399',
+                            borderRadius: 99,
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {node.torqueActual != null && (
+                    <div>
+                      <div style={{ fontSize: 8, color: 'rgba(140,165,230,0.45)', letterSpacing: '0.1em', marginBottom: 3 }}>TORQUE</div>
+                      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#fbbf24' }}>
+                        {node.torqueActual.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Status word */}
+              {node.statusWord != null && (
+                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'rgba(140,165,230,0.40)', letterSpacing: '0.05em' }}>
+                  SW: 0x{Number(node.statusWord).toString(16).toUpperCase().padStart(4, '0')}
+                  {node.modeDisplay != null && (
+                    <span style={{ marginLeft: 8, color: 'rgba(251,191,36,0.55)' }}>{node.modeDisplayText}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1674,7 +1959,7 @@ const LiveView = () => {
   const [lineId,   setLineId]   = useState('')
 
   // ── WebSocket (passes siteId/lineId once known) ──
-  const { decoded, connected, servos, dbStatus, plcState } = useWebSocket(machineId, siteId, lineId)
+  const { decoded, connected, servos, canopenNodes, dbStatus, plcState } = useWebSocket(machineId, siteId, lineId)
 
   // ── API-polled machine status (3-state: RUNNING / STOPPED / POWER OFF) ──
   const [rawApiStatus, setRawApiStatus] = useState(null)
@@ -1843,6 +2128,7 @@ const LiveView = () => {
       ['Diagnostic Word',       r => r.diagnosticWord ?? ''],
       ['Device Uptime (ms)',    r => r.deviceUptimeMs ?? ''],
       ['Cycle Count',           r => r.cycleCount ?? ''],
+      ['CANopen Nodes (JSON)',  r => r.canopenNodes?.length ? JSON.stringify(r.canopenNodes) : ''],
     ]
 
     const cell = (v) => {
@@ -2140,6 +2426,13 @@ const LiveView = () => {
             />
           )}
         </Section>
+
+        {/* ══ CANopen Network Topology (conditional — only when nodes data present) ══ */}
+        {canopenNodes.length > 0 && (
+          <Section title="CANopen Network" delay={0.16}>
+            <CANopenNodesPanel nodes={canopenNodes} />
+          </Section>
+        )}
 
         {/* ══ ROW 3: CAN Bus Telemetry (left 60%) + Drive Diagnostics (right 40%) ══ */}
         <div className="lv-panel-grid">

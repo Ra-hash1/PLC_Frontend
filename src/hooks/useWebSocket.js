@@ -169,8 +169,9 @@ export const useWebSocket = (
     lastAlarm,
     dbStatus,
     lastDataAt,
-    // expose decoded servos directly for convenience
-    servos: decoded?.servos ?? [],
+    // expose decoded arrays directly for convenience
+    servos:       decoded?.servos       ?? [],
+    canopenNodes: decoded?.canopenNodes ?? [],
     plcState,
   }
 }

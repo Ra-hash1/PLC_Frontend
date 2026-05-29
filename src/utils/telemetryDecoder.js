@@ -123,34 +123,127 @@ export function decodeErrorCode(errorCode) {
 }
 
 // ─── Single Servo Decoder ─────────────────────────────────────────────────────
+// New firmware sends axisErrorId (canonical) — errorCode kept as legacy alias.
+// New firmware sends diagnosticWord (canonical) — reservedWord kept as legacy alias.
 export function decodeServo(servo) {
   // statusWord / modeDisplay are kept as null when absent — this is the "no data"
   // sentinel consumed by StatusWordBits (it shows "—" instead of 8 dimmed pills).
-  // But for *text* decoding we fall back to 0, which produces readable labels like
-  // "Unknown state" / "—" rather than raw null.
-  const statusWord       = servo.statusWord  ?? null   // null = no data (for StatusWordBits)
-  const modeDisplay      = servo.modeDisplay ?? null   // null = no data
-  const errorCode        = servo.errorCode   ?? 0
+  const statusWord       = servo.statusWord  ?? null
+  const modeDisplay      = servo.modeDisplay ?? null
+
+  // axisErrorId is the canonical name; errorCode is the legacy alias (backward compat)
+  const errorCode        = servo.axisErrorId ?? servo.errorCode ?? 0
+
   const faultActive      = !!servo.faultActive
   const warningActive    = !!servo.warningActive
   const operationEnabled = !!servo.operationEnabled
 
+  // diagnosticWord is canonical; reservedWord is the legacy alias
+  const diagnosticWord   = servo.diagnosticWord ?? servo.reservedWord ?? 0
+
   return {
-    servoId:          servo.servoId          ?? 0,
-    statusWord,                                                  // null when absent
-    statusWordText:   decodeStatusWordText(statusWord ?? 0),    // '0x0000'→'Unknown state'
-    errorCode,
+    // ── Identity ─────────────────────────────────────────────────────────────
+    servoId:          servo.servoId  ?? servo.axisId ?? 0,
+    axisId:           servo.axisId   ?? servo.servoId ?? 0,
+
+    // ── CiA 402 status ───────────────────────────────────────────────────────
+    statusWord,
+    statusWordText:   decodeStatusWordText(statusWord ?? 0),
+    modeDisplay,
+    modeDisplayText:  decodeModeDisplayText(modeDisplay ?? 0),
+
+    // ── Error / diagnostics ──────────────────────────────────────────────────
+    errorCode,                                // canonical (axisErrorId ?? errorCode)
     errorText:        decodeErrorCode(errorCode),
-    statusFlags:      servo.statusFlags      ?? 0,
-    reservedWord:     servo.reservedWord     ?? 0,
+    diagnosticWord,                           // canonical (diagnosticWord ?? reservedWord)
+
+    // ── Aggregated status flags ───────────────────────────────────────────────
+    statusFlags:      servo.statusFlags  ?? 0,
     operationEnabled,
     faultActive,
     warningActive,
     remoteActive:     !!servo.remoteActive,
-    modeDisplay,                                                 // null when absent
-    modeDisplayText:  decodeModeDisplayText(modeDisplay ?? 0),  // 0→'—', or real mode
-    alarmStatus:      (errorCode !== 0 || faultActive) ? 'ACTIVE' : 'NONE',
-    machineStatus:    faultActive ? 'STOPPED' : operationEnabled ? 'RUNNING' : 'STOPPED',
+
+    // ── PLC-native per-axis state flags (new firmware, v5 schema) ───────────
+    feedbackFresh:    servo.feedbackFresh    != null ? !!servo.feedbackFresh    : null,
+    faultActiveRaw:   servo.faultActiveRaw   != null ? !!servo.faultActiveRaw   : null,
+    readyToRun:       servo.readyToRun       != null ? !!servo.readyToRun       : null,
+    actuallyRunning:  servo.actuallyRunning  != null ? !!servo.actuallyRunning  : null,
+    faulted:          servo.faulted          != null ? !!servo.faulted          : null,
+    stopping:         servo.stopping         != null ? !!servo.stopping         : null,
+    standstill:       servo.standstill       != null ? !!servo.standstill       : null,
+    disabled:         servo.disabled         != null ? !!servo.disabled         : null,
+    homing:           servo.homing           != null ? !!servo.homing           : null,
+
+    // ── Read-status validity flags ────────────────────────────────────────────
+    readStatusValid:  servo.readStatusValid  != null ? !!servo.readStatusValid  : null,
+    axisErrorValid:   servo.axisErrorValid   != null ? !!servo.axisErrorValid   : null,
+    positionValid:    servo.positionValid    != null ? !!servo.positionValid    : null,
+
+    // ── Motion state flags ───────────────────────────────────────────────────
+    continuousMotion: servo.continuousMotion != null ? !!servo.continuousMotion : null,
+    discreteMotion:   servo.discreteMotion   != null ? !!servo.discreteMotion   : null,
+    syncMotion:       servo.syncMotion       != null ? !!servo.syncMotion       : null,
+    speedChanging:    servo.speedChanging    != null ? !!servo.speedChanging    : null,
+    readBlockError:   servo.readBlockError   != null ? !!servo.readBlockError   : null,
+
+    // ── Torque / load ────────────────────────────────────────────────────────
+    torqueMagnitude:  servo.torqueMagnitude  != null ? Number(servo.torqueMagnitude) : null,
+    torqueNegative:   servo.torqueNegative   != null ? !!servo.torqueNegative        : null,
+    torqueActual:     servo.torqueActual     != null ? Number(servo.torqueActual)    : null,
+    loadPercent:      servo.loadPercent      != null ? Number(servo.loadPercent)     : null,
+
+    // ── Derived ──────────────────────────────────────────────────────────────
+    alarmStatus:    (errorCode !== 0 || faultActive) ? 'ACTIVE' : 'NONE',
+    machineStatus:  faultActive ? 'STOPPED' : operationEnabled ? 'RUNNING' : 'STOPPED',
+  }
+}
+
+// ─── Single CANopen Node Decoder ──────────────────────────────────────────────
+// Decodes a canopenNodes[] entry from the Lambda / ESP32 payload.
+// Each entry represents one physical node on the CAN bus network.
+export function decodeCANopenNode(node) {
+  const errorCode = node.errorCode ?? node.axisErrorId ?? 0
+
+  return {
+    // ── Identity ─────────────────────────────────────────────────────────────
+    nodeId:           node.nodeId        ?? 0,
+
+    // ── Network presence ─────────────────────────────────────────────────────
+    online:           node.online        != null ? !!node.online          : null,
+    heartbeatActive:  node.heartbeatActive != null ? !!node.heartbeatActive : null,
+    heartbeatCount:   node.heartbeatCount != null ? Number(node.heartbeatCount) : null,
+
+    // ── NMT state ────────────────────────────────────────────────────────────
+    // String sent by Lambda: OPERATIONAL / PRE_OPERATIONAL / STOPPED / INITIALIZING
+    nmtState:         node.nmtState ?? node.state ?? 'UNKNOWN',
+
+    // ── CiA 402 status ───────────────────────────────────────────────────────
+    statusWord:       node.statusWord    ?? null,
+    statusWordText:   decodeStatusWordText(node.statusWord ?? 0),
+    modeDisplay:      node.modeDisplay   ?? null,
+    modeDisplayText:  decodeModeDisplayText(node.modeDisplay ?? 0),
+
+    // ── Error / diagnostics ──────────────────────────────────────────────────
+    errorCode,
+    errorText:        decodeErrorCode(errorCode),
+    errorRegister:    node.errorRegister != null ? Number(node.errorRegister) : null,
+    axisErrorId:      node.axisErrorId   ?? null,
+    diagnosticWord:   node.diagnosticWord != null ? Number(node.diagnosticWord) : null,
+
+    // ── Status flags ─────────────────────────────────────────────────────────
+    faultActive:      node.faultActive      != null ? !!node.faultActive      : null,
+    warningActive:    node.warningActive     != null ? !!node.warningActive    : null,
+    operationEnabled: node.operationEnabled  != null ? !!node.operationEnabled : null,
+    remoteActive:     node.remoteActive      != null ? !!node.remoteActive     : null,
+
+    // ── Torque / load ────────────────────────────────────────────────────────
+    torqueActual:     node.torqueActual  != null ? Number(node.torqueActual)  : null,
+    loadPercent:      node.loadPercent   != null ? Number(node.loadPercent)   : null,
+
+    // ── PDO counters ─────────────────────────────────────────────────────────
+    rpdoRxCount:      node.rpdoRxCount   != null ? Number(node.rpdoRxCount)  : null,
+    tpdoTxCount:      node.tpdoTxCount   != null ? Number(node.tpdoTxCount)  : null,
   }
 }
 
@@ -206,24 +299,30 @@ export function decodeAlarmStatus(data, decodedServos = null) {
 // ─── Full Telemetry Decoder ───────────────────────────────────────────────────
 // Mirrors decodeTelemetry() in mobile plcTelemetry.ts:
 //
-//  1. Decode all servos.
-//  2. Select "primaryServo" using fault-priority:
+//  1. Decode all servos (with extended v5 fields).
+//  2. Decode all canopenNodes[].
+//  3. Select "primaryServo" using fault-priority:
 //       → first servo with errorCode ≠ 0 or faultActive = true
 //       → fall back to servos[0]
 //     The primaryServo drives the headline status word / error / mode shown at the top.
-//  3. Aggregate boolean flags (operationEnabled, faultActive, warningActive) across
+//  4. Aggregate boolean flags (operationEnabled, faultActive, warningActive) across
 //     ALL servos so alert banners fire for any drive fault, not just the selected one.
-//  4. Derive machineStatus and alarmStatus from the decoded servo set.
+//  5. Derive machineStatus and alarmStatus from the decoded servo set.
 export function decodeTelemetry(data) {
   // ── Step 1: decode all servos ─────────────────────────────────────────────
   const servos = Array.isArray(data.servos) ? data.servos.map(decodeServo) : []
 
-  // ── Step 2: fault-priority primary servo ─────────────────────────────────
+  // ── Step 2: decode all canopenNodes ──────────────────────────────────────
+  const canopenNodes = Array.isArray(data.canopenNodes)
+    ? data.canopenNodes.map(decodeCANopenNode)
+    : []
+
+  // ── Step 3: fault-priority primary servo ─────────────────────────────────
   // If a faulted servo exists, it becomes "primary" so the dashboard immediately
   // surfaces the fault — even if the user currently has a healthy drive selected.
   const primaryServo = servos.find(s => s.errorCode !== 0 || s.faultActive) ?? servos[0] ?? null
 
-  // ── Step 3: key scalar fields — prefer primaryServo, fall back to top-level ─
+  // ── Step 4: key scalar fields — prefer primaryServo, fall back to top-level ─
   // statusWord/modeDisplay use 0 as the numeric default so that StatCards can
   // render "0x0000" / "Unknown state" when the machine hasn't sent a value yet.
   // The per-servo null sentinel is handled separately inside decodeServo().
@@ -231,7 +330,7 @@ export function decodeTelemetry(data) {
   const errorCode   = primaryServo?.errorCode   ?? data.errorCode   ?? 0
   const modeDisplay = primaryServo?.modeDisplay ?? data.modeDisplay ?? 0
 
-  // ── Step 4: aggregate boolean flags across all servos ─────────────────────
+  // ── Step 5: aggregate boolean flags across all servos ─────────────────────
   // This ensures faultActive / warningActive are true if ANY drive has an issue,
   // triggering the correct banners regardless of which drive is currently selected.
   const operationEnabled = servos.length > 0
@@ -249,7 +348,7 @@ export function decodeTelemetry(data) {
   // remoteActive: follow primary servo (or top-level for legacy firmware)
   const remoteActive = primaryServo?.remoteActive ?? !!data.remoteActive
 
-  // ── Step 5: machine-level status derived from the decoded servo set ───────
+  // ── Step 6: machine-level status derived from the decoded servo set ───────
   const machineStatus = decodeMachineStatus(data, servos)
   const alarmStatus   = decodeAlarmStatus(data, servos)
 
@@ -297,8 +396,11 @@ export function decodeTelemetry(data) {
     lineId:    data.lineId    ?? '',
     machineId: data.machineId ?? '',
 
-    // Multi-drive arrays
-    servos,                                        // all decoded servos
-    primaryServoId: primaryServo?.servoId ?? null, // which servo is driving headline status
+    // Multi-drive arrays (decoded)
+    servos,
+    primaryServoId: primaryServo?.servoId ?? null,
+
+    // CANopen network topology (decoded)
+    canopenNodes,
   }
 }
