@@ -2111,7 +2111,10 @@ const LiveView = () => {
     setCsvEta('')
     setCsvTotal(0)
 
-    const BATCH = 10000
+    // 2 000 rows per request — Railway has a 30 s request timeout.
+    // raw_payload is excluded server-side; remaining per-row size is ~3–5 KB.
+    // 2 000 × 5 KB = ~10 MB per batch — comfortably within limits.
+    const BATCH = 2000
 
     const cell = (v) => {
       const s = v == null ? '' : String(v)
@@ -2241,17 +2244,32 @@ const LiveView = () => {
         ).flat(),
       ]
 
-      // Step 3: cursor-based pagination — O(log n) per batch, safe against concurrent inserts
+      // Step 3: cursor-based pagination — O(log n) per batch, immune to concurrent inserts.
+      // Each batch is retried once on 5xx / network error before aborting the export.
       const parts   = [COLS.map(([h]) => h).join(',')]
       let fetched   = 0
       let lastId    = null   // PK cursor; null = first page
       const startMs = Date.now()
 
+      const fetchBatch = async (params) => {
+        try {
+          return await api.get(`/telemetry/${machineId}/history`, { params, timeout: 25000 })
+        } catch (err) {
+          // Retry once on 5xx or network error
+          const status = err?.response?.status
+          if (!status || status >= 500) {
+            await new Promise(r => setTimeout(r, 1500))
+            return api.get(`/telemetry/${machineId}/history`, { params, timeout: 25000 })
+          }
+          throw err
+        }
+      }
+
       while (fetched < total) {
         const params = { from: fromUTC, to: toUTC, limit: BATCH }
         if (lastId !== null) params.after_id = lastId
 
-        const res  = await api.get(`/telemetry/${machineId}/history`, { params })
+        const res  = await fetchBatch(params)
         const rows = res.data?.data ?? []
         if (rows.length === 0) break
 
