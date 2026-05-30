@@ -17,15 +17,24 @@ const pad2 = (n) => String(Math.floor(n)).padStart(2, '0')
 // Date → "YYYY-MM-DDTHH:mm" in IST (for datetime-local inputs)
 const toISTInput = (d) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16)
 
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
 // datetime-local string (treated as IST) → UTC ISO string (for API queries)
 const istToUTC = (s) => new Date(s + ':00+05:30').toISOString()
 
-// UTC timestamp string → "YYYY-MM-DD HH:mm:ss.SSS+05:30" (matches DB format, for CSV)
+// UTC → "30-May-2026 12:56:55 IST"  — clean, unambiguous, no millisecond noise
 const fmtIST = (ts) => {
   if (!ts) return ''
   const d = new Date(ts)
-  return isNaN(d.getTime()) ? String(ts)
-    : new Date(d.getTime() + IST_OFFSET_MS).toISOString().replace('T', ' ').slice(0, 23) + '+05:30'
+  if (isNaN(d.getTime())) return String(ts)
+  const ist = new Date(d.getTime() + IST_OFFSET_MS)
+  const dd   = String(ist.getUTCDate()).padStart(2, '0')
+  const mon  = MONTH_SHORT[ist.getUTCMonth()]
+  const yyyy = ist.getUTCFullYear()
+  const hh   = String(ist.getUTCHours()).padStart(2, '0')
+  const mm   = String(ist.getUTCMinutes()).padStart(2, '0')
+  const ss   = String(ist.getUTCSeconds()).padStart(2, '0')
+  return `${dd}-${mon}-${yyyy} ${hh}:${mm}:${ss} IST`
 }
 
 // Milliseconds → human ETA string
@@ -2104,50 +2113,135 @@ const LiveView = () => {
 
     const BATCH = 10000
 
-    const COLS = [
-      ['Timestamp (IST)',       r => fmtIST(r.ts)],
-      ['Machine ID',            r => r.machineId || ''],
-      ['Machine Running',       r => r.machineActuallyRunning ?? ''],
-      ['Status Word',           r => r.statusWord != null ? `0x${Number(r.statusWord).toString(16).toUpperCase().padStart(4,'0')}` : ''],
-      ['Error Code',            r => r.errorCode ?? ''],
-      ['CAN State',             r => r.canState || ''],
-      ['Feedback Fresh',        r => r.plcFeedbackFresh ?? ''],
-      ['Ready to Run',          r => r.machineReadyToRun ?? ''],
-      ['Actually Running',      r => r.machineActuallyRunning ?? ''],
-      ['Faulted',               r => r.machineFaulted ?? ''],
-      ['Stopping',              r => r.machineStopping ?? ''],
-      ['Disabled',              r => r.machineDisabled ?? ''],
-      ['Remote Start Allowed',  r => r.remoteStartAllowed ?? ''],
-      ['Pouch Counter',         r => r.pouchCounter ?? ''],
-      ['Session Pouches',       r => r.sessionPouches ?? ''],
-      ['Total Pouches',         r => r.totalPouches ?? ''],
-      ['Production Rate (ppm)', r => r.productionRatePpm ?? ''],
-      ['Session Runtime (s)',   r => r.sessionRuntimeSeconds ?? ''],
-      ['Total Runtime (s)',     r => r.totalRuntimeSeconds ?? ''],
-      ['Axis Error ID',         r => r.axisErrorId ?? ''],
-      ['Diagnostic Word',       r => r.diagnosticWord ?? ''],
-      ['Device Uptime (ms)',    r => r.deviceUptimeMs ?? ''],
-      ['Cycle Count',           r => r.cycleCount ?? ''],
-      ['CANopen Nodes (JSON)',  r => r.canopenNodes?.length ? JSON.stringify(r.canopenNodes) : ''],
-    ]
-
     const cell = (v) => {
-      const s = String(v)
+      const s = v == null ? '' : String(v)
       return s.includes(',') || s.includes('"') || s.includes('\n')
         ? `"${s.replace(/"/g, '""')}"` : s
     }
+
+    const hexWord = (n) => n != null ? `0x${Number(n).toString(16).toUpperCase().padStart(4,'0')}` : ''
 
     try {
       const fromUTC = istToUTC(csvFrom)
       const toUTC   = istToUTC(csvTo)
 
-      // Step 1: get total row count for progress tracking
-      const countRes = await api.get(`/telemetry/${machineId}/count`, { params: { from: fromUTC, to: toUTC } })
-      const total    = countRes.data?.data?.count ?? 0
+      // Step 1: parallel — row count + max array widths (for dynamic servo/node columns)
+      const [countRes, widthRes] = await Promise.all([
+        api.get(`/telemetry/${machineId}/count`,        { params: { from: fromUTC, to: toUTC } }),
+        api.get(`/telemetry/${machineId}/array-widths`, { params: { from: fromUTC, to: toUTC } }),
+      ])
+      const total          = countRes.data?.data?.count ?? 0
       if (total === 0) { toast.info('No telemetry data in the selected range'); return }
       setCsvTotal(total)
 
-      // Step 2: cursor-based pagination — O(log n) per batch, safe against concurrent inserts
+      const maxServos  = widthRes.data?.data?.maxServos       ?? 0
+      const maxNodes   = widthRes.data?.data?.maxCanopenNodes ?? 0
+
+      // Step 2: build column definitions — scalar columns first, then per-servo, then per-node
+      // All servo fields — matched to actual Lambda/DB schema (camelCase keys in JSONB)
+      const SERVO_FIELDS = [
+        ['Servo ID',          s => s.servoId          ?? s.axisId ?? ''],
+        ['Axis ID',           s => s.axisId           ?? ''],
+        ['Status Word',       s => hexWord(s.statusWord)],
+        ['Axis Error ID',     s => s.axisErrorId      ?? ''],
+        ['Diag Word',         s => hexWord(s.diagnosticWord)],
+        ['Mode Display',      s => s.modeDisplay      ?? ''],
+        ['Status Flags',      s => s.statusFlags      ?? ''],
+        ['Op Enabled',        s => s.operationEnabled ?? ''],
+        ['Fault Active Raw',  s => s.faultActiveRaw   ?? ''],
+        ['Faulted',           s => s.faulted          ?? ''],
+        ['Warning Active',    s => s.warningActive    ?? ''],
+        ['Disabled',          s => s.disabled         ?? ''],
+        ['Stopping',          s => s.stopping         ?? ''],
+        ['Ready to Run',      s => s.readyToRun       ?? ''],
+        ['Actually Running',  s => s.actuallyRunning  ?? ''],
+        ['Standstill',        s => s.standstill       ?? ''],
+        ['Homing',            s => s.homing           ?? ''],
+        ['Feedback Fresh',    s => s.feedbackFresh    ?? ''],
+        ['Read Status Valid', s => s.readStatusValid  ?? ''],
+        ['Axis Error Valid',  s => s.axisErrorValid   ?? ''],
+        ['Position Valid',    s => s.positionValid    ?? ''],
+        ['Continuous Motion', s => s.continuousMotion ?? ''],
+        ['Discrete Motion',   s => s.discreteMotion   ?? ''],
+        ['Sync Motion',       s => s.syncMotion       ?? ''],
+        ['Speed Changing',    s => s.speedChanging    ?? ''],
+        ['Read Block Error',  s => s.readBlockError   ?? ''],
+        ['Torque Actual',     s => s.torqueActual     ?? ''],
+        ['Torque Magnitude',  s => s.torqueMagnitude  ?? ''],
+        ['Torque Negative',   s => s.torqueNegative   ?? ''],
+        ['Load %',            s => s.loadPercent      ?? ''],
+      ]
+
+      // All CANopen node fields — matched to actual Lambda/DB schema
+      const NODE_FIELDS = [
+        ['Node ID',           n => n.nodeId            ?? ''],
+        ['State',             n => n.state ?? n.nmtState ?? ''],
+        ['Status Word',       n => hexWord(n.statusWord)],
+        ['Axis Error ID',     n => n.axisErrorId       ?? ''],
+        ['Last Diag Word',    n => hexWord(n.lastDiagnosticWord)],
+        ['Mode Display',      n => n.modeDisplay       ?? ''],
+        ['Status Flags',      n => n.statusFlags       ?? ''],
+        ['Fault Active',      n => n.faultActive       ?? ''],
+        ['Warning Active',    n => n.warningActive     ?? ''],
+        ['Op Enabled',        n => n.operationEnabled  ?? ''],
+        ['Remote Active',     n => n.remoteActive      ?? ''],
+        ['SDO RX Counter',    n => n.sdoRxCounter      ?? ''],
+        ['SDO TX Counter',    n => n.sdoTxCounter      ?? ''],
+        ['RPDO RX Counter',   n => n.rpdoRxCounter     ?? ''],
+        ['TPDO TX Counter',   n => n.tpdoTxCounter     ?? ''],
+        ['Heartbeat TX',      n => n.heartbeatTxCounter ?? ''],
+      ]
+
+      const COLS = [
+        // ── Machine-level scalars ──────────────────────────────────────────
+        ['Timestamp (IST)',       r => fmtIST(r.ts)],
+        ['Machine ID',            r => r.machineId || ''],
+        ['CAN State',             r => r.canState  || ''],
+        ['Status Word',           r => hexWord(r.statusWord)],
+        ['Error Code',            r => r.errorCode ?? ''],
+        // ── PLC state flags ───────────────────────────────────────────────
+        ['Feedback Fresh',        r => r.plcFeedbackFresh        ?? ''],
+        ['Ready to Run',          r => r.machineReadyToRun       ?? ''],
+        ['Actually Running',      r => r.machineActuallyRunning  ?? ''],
+        ['Faulted',               r => r.machineFaulted          ?? ''],
+        ['Stopping',              r => r.machineStopping         ?? ''],
+        ['Disabled',              r => r.machineDisabled         ?? ''],
+        ['Remote Start Allowed',  r => r.remoteStartAllowed      ?? ''],
+        // ── Production counters ───────────────────────────────────────────
+        ['Pouch Counter',         r => r.pouchCounter         ?? ''],
+        ['Session Pouches',       r => r.sessionPouches       ?? ''],
+        ['Total Pouches',         r => r.totalPouches         ?? ''],
+        ['Production Rate (ppm)', r => r.productionRatePpm    ?? ''],
+        ['Session Runtime (s)',   r => r.sessionRuntimeSeconds ?? ''],
+        ['Total Runtime (s)',     r => r.totalRuntimeSeconds   ?? ''],
+        // ── Diagnostics ───────────────────────────────────────────────────
+        ['Axis Error ID',         r => r.axisErrorId   ?? ''],
+        ['Diagnostic Word',       r => hexWord(r.diagnosticWord)],
+        ['Device Uptime (ms)',    r => r.deviceUptimeMs ?? ''],
+        ['Cycle Count',           r => r.cycleCount    ?? ''],
+        // ── Per-servo columns (one group per drive) ───────────────────────
+        ...Array.from({ length: maxServos }, (_, i) =>
+          SERVO_FIELDS.map(([label, fn]) => [
+            `Servo ${i + 1} ${label}`,
+            r => {
+              const s = Array.isArray(r.servos) ? r.servos[i] : null
+              return s != null ? fn(s) : ''
+            },
+          ])
+        ).flat(),
+        // ── Per-CANopen-node columns (one group per node) ─────────────────
+        ...Array.from({ length: maxNodes }, (_, i) =>
+          NODE_FIELDS.map(([label, fn]) => [
+            `Node ${i + 1} ${label}`,
+            r => {
+              const n = Array.isArray(r.canopenNodes) ? r.canopenNodes[i] : null
+              return n != null ? fn(n) : ''
+            },
+          ])
+        ).flat(),
+      ]
+
+      // Step 3: cursor-based pagination — O(log n) per batch, safe against concurrent inserts
       const parts   = [COLS.map(([h]) => h).join(',')]
       let fetched   = 0
       let lastId    = null   // PK cursor; null = first page
@@ -2564,7 +2658,7 @@ const LiveView = () => {
               fontSize: 11, color: 'rgba(160,185,240,0.55)',
               fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
             }}>
-              Last telemetry: {new Date(decoded?.ts || decoded?.timestamp).toLocaleString()}
+              Last telemetry: {fmtIST(decoded?.ts || decoded?.timestamp)}
             </span>
           </div>
         )}

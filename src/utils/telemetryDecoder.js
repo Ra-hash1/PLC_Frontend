@@ -134,7 +134,8 @@ export function decodeServo(servo) {
   // axisErrorId is the canonical name; errorCode is the legacy alias (backward compat)
   const errorCode        = servo.axisErrorId ?? servo.errorCode ?? 0
 
-  const faultActive      = !!servo.faultActive
+  // Lambda sends faultActiveRaw (raw CiA 402 FAULT bit); faultActive is legacy alias
+  const faultActive      = !!(servo.faultActiveRaw ?? servo.faultActive ?? false)
   const warningActive    = !!servo.warningActive
   const operationEnabled = !!servo.operationEnabled
 
