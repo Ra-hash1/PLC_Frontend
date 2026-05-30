@@ -2111,10 +2111,9 @@ const LiveView = () => {
     setCsvEta('')
     setCsvTotal(0)
 
-    // 2 000 rows per request — Railway has a 30 s request timeout.
-    // raw_payload is excluded server-side; remaining per-row size is ~3–5 KB.
-    // 2 000 × 5 KB = ~10 MB per batch — comfortably within limits.
-    const BATCH = 2000
+    // 500 rows per request — keeps each batch under 3 MB after raw_payload exclusion.
+    // Smaller batches avoid Railway timeouts and are fast enough for lakh-row exports.
+    const BATCH = 500
 
     const cell = (v) => {
       const s = v == null ? '' : String(v)
@@ -2248,7 +2247,9 @@ const LiveView = () => {
       // Each batch is retried once on 5xx / network error before aborting the export.
       const parts   = [COLS.map(([h]) => h).join(',')]
       let fetched   = 0
-      let lastId    = null   // PK cursor; null = first page
+      let lastId    = 0     // Start at 0 so every batch uses ASC cursor (id > lastId).
+      // NEVER use null here — null triggers DESC mode on batch 1 then ASC on batch 2,
+      // causing the second batch to duplicate all rows from the first.
       const startMs = Date.now()
 
       const fetchBatch = async (params) => {
@@ -2302,7 +2303,10 @@ const LiveView = () => {
       toast.success(`Exported ${fetched.toLocaleString('en-IN')} rows`)
       setCsvOpen(false)
     } catch (err) {
-      toast.error('Export failed — ' + (err?.response?.data?.error || 'check network or reduce date range'))
+      const status  = err?.response?.status
+      const message = err?.response?.data?.error || err?.message || 'unknown error'
+      console.error('[CSV Export] failed', { status, message, err })
+      toast.error(`Export failed [${status ?? 'no response'}] — ${message}`)
     } finally {
       setCsvLoading(false)
       setCsvProgress(0)
