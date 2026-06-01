@@ -10,6 +10,7 @@ import { STATUS_WORD_BITS } from '../utils/telemetryDecoder'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const API_STALE_MS  = 2 * 60 * 1000   // 2 min → POWER OFF
+const DATA_STALE_MS = 7_000            // 7 s  → telemetry considered stale (matches mobile)
 const IST_OFFSET_MS = 5.5 * 3600000   // UTC+05:30
 
 const pad2 = (n) => String(Math.floor(n)).padStart(2, '0')
@@ -270,11 +271,9 @@ const GlobalStyles = () => (
     /* ── DRIVE SELECTOR GRID ── */
     .lv-drives-grid {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
+      /* columns set inline from drive count — always single row */
       gap: 8px;
-    }
-    @media (max-width: 700px) {
-      .lv-drives-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+      overflow-x: auto;
     }
     .lv-drive-chip {
       display: flex; flex-direction: column; align-items: center;
@@ -715,7 +714,7 @@ const CounterBar = ({ label, value, max = 9999, color = '#a78bfa' }) => {
   )
 }
 
-const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral', fullWidthOnMobile = false }) => {
+const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral', fullWidthOnMobile = false, hint }) => {
   const themes = {
     success: {
       idle:  { bg: 'rgba(52,211,153,0.13)',  border: 'rgba(52,211,153,0.45)',  color: '#34d399' },
@@ -732,30 +731,41 @@ const CmdBtn = ({ label, icon, onClick, disabled, variant = 'neutral', fullWidth
   }
   const t = themes[variant]
   return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={fullWidthOnMobile ? 'lv-cmd-btn-full' : ''}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 9,
-        padding: '11px 22px', borderRadius: 10,
-        background: t.idle.bg, border: `1px solid ${t.idle.border}`,
-        color: t.idle.color,
-        fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-display)',
-        letterSpacing: '0.07em', textTransform: 'uppercase',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.32 : 1,
-        transition: 'all var(--transition)',
-        textShadow: `0 0 14px ${t.idle.color}55`,
-        boxShadow: `0 2px 14px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)`,
-        whiteSpace: 'nowrap',
-      }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = t.hover.bg }}
-      onMouseLeave={e => { e.currentTarget.style.background = t.idle.bg }}
-    >
-      <span style={{ fontSize: 15 }}>{icon}</span>
-      {label}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <button
+        disabled={disabled}
+        onClick={onClick}
+        className={fullWidthOnMobile ? 'lv-cmd-btn-full' : ''}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '11px 22px', borderRadius: 10,
+          background: t.idle.bg, border: `1px solid ${t.idle.border}`,
+          color: t.idle.color,
+          fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-display)',
+          letterSpacing: '0.07em', textTransform: 'uppercase',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.32 : 1,
+          transition: 'all var(--transition)',
+          textShadow: `0 0 14px ${t.idle.color}55`,
+          boxShadow: `0 2px 14px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)`,
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = t.hover.bg }}
+        onMouseLeave={e => { e.currentTarget.style.background = t.idle.bg }}
+      >
+        <span style={{ fontSize: 15 }}>{icon}</span>
+        {label}
+      </button>
+      {hint && (
+        <span style={{
+          fontSize: 10, color: disabled ? 'rgba(248,113,113,0.65)' : 'rgba(52,211,153,0.70)',
+          fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
+          paddingLeft: 4,
+        }}>
+          {hint}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -975,7 +985,7 @@ const RuntimeClock = ({ runtimeSeconds, isRunning, label = 'Session Runtime', st
 /* ─────────────────────────────────────────────────────────
    PRODUCTION COUNTER — reads real cycle_count from PLC
 ───────────────────────────────────────────────────────── */
-const ProductionCard = ({ sessionPouches, totalPouches, pouchCounter, productionRatePpm }) => {
+const ProductionCard = ({ sessionPouches, totalPouches, pouchCounter, productionRatePpm, onReset }) => {
   const hasData = pouchCounter !== null && pouchCounter !== undefined
 
   const fmtNum = (n) => {
@@ -1025,19 +1035,40 @@ const ProductionCard = ({ sessionPouches, totalPouches, pouchCounter, production
         )}
       </div>
 
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '5px 10px', borderRadius: 8,
-        background: hasData ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
-        border: `1px solid ${hasData ? 'rgba(52,211,153,0.28)' : 'rgba(255,255,255,0.08)'}`,
-        fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
-        color: hasData ? 'rgba(52,211,153,0.85)' : 'rgba(160,180,230,0.35)',
-        textTransform: 'uppercase', alignSelf: 'flex-end',
-      }}>
-        {hasData
-          ? <><LiveDot active color="#34d399" size={5} />PLC Live</>
-          : <>○ No Signal</>
-        }
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          padding: '5px 10px', borderRadius: 8,
+          background: hasData ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${hasData ? 'rgba(52,211,153,0.28)' : 'rgba(255,255,255,0.08)'}`,
+          fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+          color: hasData ? 'rgba(52,211,153,0.85)' : 'rgba(160,180,230,0.35)',
+          textTransform: 'uppercase',
+        }}>
+          {hasData
+            ? <><LiveDot active color="#34d399" size={5} />PLC Live</>
+            : <>○ No Signal</>
+          }
+        </div>
+        {onReset && (
+          <button
+            onClick={onReset}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(138,155,184,0.20)',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+              color: 'rgba(138,155,184,0.55)', textTransform: 'uppercase',
+              transition: 'var(--transition)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(248,113,113,0.40)'; e.currentTarget.style.color = '#f87171' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(138,155,184,0.20)'; e.currentTarget.style.color = 'rgba(138,155,184,0.55)' }}
+            title="Reset production counters"
+          >
+            ↺ Reset
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1127,7 +1158,10 @@ const DriveSelector = ({ servos, selectedId, onSelect, primaryServoId = null }) 
     : Array.from({ length: 8 }, (_, i) => ({ servoId: i + 1 }))
 
   return (
-    <div className="lv-drives-grid">
+    <div
+      className="lv-drives-grid"
+      style={{ gridTemplateColumns: `repeat(${drives.length}, minmax(90px, 1fr))` }}
+    >
       {drives.map((servo) => {
         const id        = servo.servoId
         const active    = selectedId === id
@@ -1393,111 +1427,83 @@ const DriveSummaryPanel = ({ drive, isPrimary = false }) => {
         ))}
       </div>
 
-      {/* Status word bit breakdown — full width */}
-      <div style={{
-        padding: '12px 18px',
-        borderTop: '1px solid rgba(80,110,200,0.10)',
-        background: 'rgba(80,110,200,0.025)',
-        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-      }}>
-        <span style={{
-          fontSize: 9, fontWeight: 700, letterSpacing: '0.15em',
-          color: 'rgba(140,165,230,0.50)', textTransform: 'uppercase',
+      {/* ── Compact combined row: Status Word · Flags · Axis · Torque/Load ── */}
+      {/* All indicator groups share one flex row so empty space is filled naturally */}
+      {(() => {
+        const axisFlags = [
+          { key: 'RDY',   label: 'Ready to Run',    val: drive.readyToRun,      color: '#34d399' },
+          { key: 'RUN',   label: 'Actually Running', val: drive.actuallyRunning, color: '#34d399' },
+          { key: 'FLT',   label: 'Faulted',          val: drive.faulted,         color: '#f87171' },
+          { key: 'STP',   label: 'Stopping',         val: drive.stopping,        color: '#fbbf24' },
+          { key: 'STND',  label: 'Standstill',       val: drive.standstill,      color: '#60a5fa' },
+          { key: 'DSB',   label: 'Disabled',         val: drive.disabled,        color: '#fbbf24' },
+          { key: 'HOM',   label: 'Homing',           val: drive.homing,          color: '#a78bfa' },
+          { key: 'FRESH', label: 'Feedback Fresh',   val: drive.feedbackFresh,   color: '#22d3ee' },
+        ].filter(f => f.val != null)
+
+        const labelStyle = {
+          fontSize: 9, fontWeight: 700, letterSpacing: '0.13em',
+          color: 'rgba(140,165,230,0.45)', textTransform: 'uppercase',
           whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          Status Word
-        </span>
-        <StatusWordBits statusWord={drive.statusWord} />
-      </div>
+        }
+        const pillStyle = (active, color) => ({
+          fontSize: 8, fontWeight: 800, padding: '3px 7px',
+          borderRadius: 5, letterSpacing: '0.07em', cursor: 'default',
+          background: active ? color + '22' : 'rgba(80,110,200,0.06)',
+          color:       active ? color       : 'rgba(120,145,195,0.28)',
+          border: `1px solid ${active ? color + '55' : 'rgba(80,110,200,0.12)'}`,
+          boxShadow: active ? `0 0 8px ${color}30` : 'none',
+        })
+        const sep = (
+          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(80,110,200,0.14)', flexShrink: 0, margin: '0 10px' }} />
+        )
 
-      {/* Flag pills strip */}
-      <div className="lv-drive-flags">
-        <span style={{
-          fontSize: 9, fontWeight: 700, color: 'rgba(140,165,230,0.45)',
-          letterSpacing: '0.12em', textTransform: 'uppercase',
-          alignSelf: 'center', marginRight: 4,
-        }}>Flags</span>
-        {flags.map(({ key, label, active, color }) => (
-          <span
-            key={key}
-            className="lv-flag-pill"
-            title={label}
-            style={{
-              background: active ? color + '20' : 'rgba(80,110,200,0.06)',
-              color:       active ? color       : 'rgba(120,145,195,0.30)',
-              border: `1px solid ${active ? color + '55' : 'rgba(80,110,200,0.14)'}`,
-              boxShadow: active ? `0 0 8px ${color}30` : 'none',
-            }}
-          >
-            {key}
-          </span>
-        ))}
-        {/* Divider + per-drive counter if available */}
-        {(drive.rpdoRxCounter !== undefined || drive.telemetryTxCounter !== undefined) && (
-          <>
-            <span style={{ width: 1, height: 14, background: 'rgba(80,110,200,0.20)', alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />
-            {drive.rpdoRxCounter !== undefined && (
-              <span style={{ fontSize: 9, color: 'rgba(167,139,250,0.65)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
-                RPDO: {drive.rpdoRxCounter}
-              </span>
-            )}
-          </>
-        )}
-      </div>
+        return (
+          <div style={{
+            padding: '10px 18px',
+            borderTop: '1px solid rgba(80,110,200,0.10)',
+            background: 'rgba(80,110,200,0.022)',
+            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          }}>
+            {/* Status Word */}
+            <span style={labelStyle}>SW</span>
+            <StatusWordBits statusWord={drive.statusWord} />
 
-      {/* ── Extended v5 fields: axis state flags + load/torque ── */}
-      {/* Only render this section when at least one v5 field is present */}
-      {(drive.readyToRun != null || drive.actuallyRunning != null || drive.loadPercent != null || drive.torqueActual != null) && (
-        <>
-          {/* Motion / axis state flags */}
-          {(drive.readyToRun != null || drive.actuallyRunning != null || drive.faulted != null ||
-            drive.stopping != null || drive.standstill != null || drive.disabled != null ||
-            drive.homing != null || drive.feedbackFresh != null) && (() => {
-            const axisFlags = [
-              { key: 'RDY',   label: 'Ready to Run',    val: drive.readyToRun,      color: '#34d399' },
-              { key: 'RUN',   label: 'Actually Running', val: drive.actuallyRunning, color: '#34d399' },
-              { key: 'FLT',   label: 'Faulted',          val: drive.faulted,         color: '#f87171' },
-              { key: 'STP',   label: 'Stopping',         val: drive.stopping,        color: '#fbbf24' },
-              { key: 'STND',  label: 'Standstill',       val: drive.standstill,      color: '#60a5fa' },
-              { key: 'DSB',   label: 'Disabled',         val: drive.disabled,        color: '#fbbf24' },
-              { key: 'HOM',   label: 'Homing',           val: drive.homing,          color: '#a78bfa' },
-              { key: 'FRESH', label: 'Feedback Fresh',   val: drive.feedbackFresh,   color: '#22d3ee' },
-            ].filter(f => f.val != null)
-            if (!axisFlags.length) return null
-            return (
-              <div style={{
-                padding: '10px 18px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
-                borderTop: '1px solid rgba(80,110,200,0.08)',
-                background: 'rgba(80,110,200,0.015)',
-              }}>
-                <span style={{
-                  fontSize: 9, fontWeight: 700, color: 'rgba(140,165,230,0.45)',
-                  letterSpacing: '0.12em', textTransform: 'uppercase',
-                  alignSelf: 'center', marginRight: 4, flexShrink: 0,
-                }}>Axis</span>
-                {axisFlags.map(({ key, label, val, color }) => (
-                  <span
-                    key={key}
-                    title={label}
-                    style={{
-                      fontSize: 8, fontWeight: 800, padding: '3px 7px',
-                      borderRadius: 5, letterSpacing: '0.07em', cursor: 'default',
-                      background: val ? color + '22' : 'rgba(80,110,200,0.06)',
-                      color:       val ? color       : 'rgba(120,145,195,0.28)',
-                      border: `1px solid ${val ? color + '55' : 'rgba(80,110,200,0.12)'}`,
-                      boxShadow: val ? `0 0 8px ${color}30` : 'none',
-                    }}
-                  >
-                    {key}
-                  </span>
+            {sep}
+
+            {/* CiA 402 flags */}
+            <span style={labelStyle}>Flags</span>
+            {flags.map(({ key, label: lbl, active, color }) => (
+              <span key={key} title={lbl} style={pillStyle(active, color)}>{key}</span>
+            ))}
+
+            {/* Axis state flags (v5) */}
+            {axisFlags.length > 0 && (
+              <>
+                {sep}
+                <span style={labelStyle}>Axis</span>
+                {axisFlags.map(({ key, label: lbl, val, color }) => (
+                  <span key={key} title={lbl} style={pillStyle(val, color)}>{key}</span>
                 ))}
-              </div>
-            )
-          })()}
+              </>
+            )}
 
-          {/* Torque + Load row */}
-          {(drive.torqueActual != null || drive.loadPercent != null ||
-            drive.continuousMotion != null || drive.discreteMotion != null || drive.syncMotion != null) && (
+            {/* RPDO counter */}
+            {drive.rpdoRxCounter !== undefined && (
+              <>
+                {sep}
+                <span style={{ fontSize: 9, color: 'rgba(167,139,250,0.55)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+                  RPDO {drive.rpdoRxCounter}
+                </span>
+              </>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Torque / Load / Motion ── */}
+      {(drive.torqueActual != null || drive.loadPercent != null ||
+        drive.continuousMotion != null || drive.discreteMotion != null || drive.syncMotion != null) && (
             <div style={{
               padding: '10px 18px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center',
               borderTop: '1px solid rgba(80,110,200,0.08)',
@@ -1558,8 +1564,6 @@ const DriveSummaryPanel = ({ drive, isPrimary = false }) => {
                 </div>
               )}
             </div>
-          )}
-        </>
       )}
     </div>
   )
@@ -1968,7 +1972,7 @@ const LiveView = () => {
   const [lineId,   setLineId]   = useState('')
 
   // ── WebSocket (passes siteId/lineId once known) ──
-  const { decoded, connected, servos, canopenNodes, dbStatus, plcState } = useWebSocket(machineId, siteId, lineId)
+  const { decoded, connected, servos, canopenNodes, dbStatus, plcState, lastDataAt } = useWebSocket(machineId, siteId, lineId)
 
   // ── API-polled machine status (3-state: RUNNING / STOPPED / POWER OFF) ──
   const [rawApiStatus, setRawApiStatus] = useState(null)
@@ -1986,6 +1990,11 @@ const LiveView = () => {
   // ── Drive selection ──
   const [selectedDriveId, setSelectedDriveId] = useState(1)
 
+  // ── Remote start readiness ──
+  const [lastDrive1ReadyAt,   setLastDrive1ReadyAt]   = useState(null)
+  const [startBlockedVisible, setStartBlockedVisible] = useState(false)
+  const [cmdSentModal,        setCmdSentModal]        = useState(null) // 'start' | 'stop'
+
   // ── CSV export ──
   const [csvOpen,     setCsvOpen]     = useState(false)
   const [csvFrom,     setCsvFrom]     = useState(() => toISTInput(new Date(Date.now() - 86400000)))
@@ -2000,9 +2009,20 @@ const LiveView = () => {
     () => computeApiStatus(rawApiStatus, lastSeenAt, now),
     [rawApiStatus, lastSeenAt, now],
   )
-  // WS flag responds instantly; falls back to polled apiStatus if WS flag not yet received
-  const isRunning = plcState?.actuallyRunning ?? (apiStatus === 'RUNNING')
-  const networkOk   = !!lastSeenAt && (now - new Date(lastSeenAt).getTime()) <= API_STALE_MS
+  const networkOk = !!lastSeenAt && (now - new Date(lastSeenAt).getTime()) <= API_STALE_MS
+
+  const isTelemetryFresh = !!lastDataAt && (now - lastDataAt) <= DATA_STALE_MS
+  const _drive1Early     = servos.find(s => s.servoId === 1) ?? servos[0] ?? null
+  const _hasLive         = isTelemetryFresh && !!decoded
+
+  const isRunning = (_hasLive && _drive1Early)
+    ? _drive1Early.actuallyRunning === true
+    : (plcState?.actuallyRunning ?? (apiStatus === 'RUNNING'))
+
+  // Unified machine status string used everywhere on the page
+  const liveMachineStatus = (_hasLive && _drive1Early)
+    ? (_drive1Early.actuallyRunning === true ? 'RUNNING' : 'STOPPED')
+    : apiStatus
 
   // ── Selected drive data ───────────────────────────────────────────────────
   const selectedDrive = servos.find(s => s.servoId === selectedDriveId) ?? servos[0] ?? null
@@ -2019,6 +2039,61 @@ const LiveView = () => {
 
   // Use persistent session counter from DB poll (replaces ephemeral device_uptime_ms)
   const runtimeSeconds = pollData?.sessionRuntimeSeconds ?? 0
+
+  // ── Machine readiness ──────────────────────────────────────────────────────
+  const DRIVE1_READY_HOLD_MS = 7000
+  const drive1          = _drive1Early
+  const drive1ErrorCode = drive1?.errorCode ?? 0
+  const drive1HasFault  = !!drive1 && (
+    drive1.faulted === true ||
+    !!(drive1.faultActiveRaw ?? drive1.faultActive ?? false) ||
+    drive1ErrorCode !== 0
+  )
+  const drive1Running   = !!drive1 && drive1.actuallyRunning === true
+  const drive1Disabled  = !!drive1 && drive1.disabled  === true
+  const drive1Stopping  = !!drive1 && drive1.stopping  === true
+  const drive1Ready     = !!drive1 &&
+    drive1.feedbackFresh === true &&
+    drive1.readyToRun    === true &&
+    drive1.standstill    === true &&
+    !drive1Disabled && !drive1Stopping && !drive1HasFault
+  const drive1ReadyFresh = drive1Ready ||
+    (!!lastDrive1ReadyAt && now - lastDrive1ReadyAt <= DRIVE1_READY_HOLD_MS)
+
+  const hasLiveMachineData         = isTelemetryFresh && !!decoded
+  const effectiveRemoteStartAllowed = hasLiveMachineData && !!drive1 && !drive1HasFault && !drive1Disabled && !drive1Stopping
+  const canEnableMachine            = networkOk && hasLiveMachineData && effectiveRemoteStartAllowed
+  const canDisableMachine           = networkOk && hasLiveMachineData
+
+  const readinessColor =
+    !hasLiveMachineData || !drive1  ? 'rgba(68,85,112,0.85)' :
+    drive1Running                   ? '#34d399'  :
+    effectiveRemoteStartAllowed     ? '#34d399'  :
+    drive1ReadyFresh                ? '#60a5fa'  :
+    drive1HasFault                  ? '#f87171'  :
+    drive1Stopping                  ? '#fbbf24'  :
+    drive1Disabled                  ? '#f87171'  :
+    '#fbbf24'
+
+  const readinessTitle =
+    !hasLiveMachineData || !drive1  ? 'Waiting for machine data'     :
+    drive1Running                   ? 'Machine running'              :
+    effectiveRemoteStartAllowed     ? 'Ready to run'                 :
+    drive1ReadyFresh                ? 'Machine ready'                :
+    drive1HasFault                  ? 'Drive fault active'           :
+    drive1Stopping                  ? 'Machine stopping'             :
+    drive1Disabled                  ? 'Machine disabled'             :
+    'Machine not ready'
+
+  const readinessMessage =
+    !hasLiveMachineData || !drive1  ? 'Machine telemetry is offline or stale.'              :
+    drive1Running                   ? 'Machine is running.'                                 :
+    effectiveRemoteStartAllowed     ? 'Machine is ready. Remote start is available.'        :
+    drive1ReadyFresh                ? 'Machine is ready, waiting for start permission.'     :
+    drive1HasFault                  ? 'Clear the active fault before starting.'             :
+    drive1Stopping                  ? 'Wait until the machine fully returns to standstill.' :
+    drive1Disabled                  ? 'Machine is disabled. Check the drive panel.'         :
+    'Waiting for the machine to become ready.'
 
   // ─────────────────────────────────────────────────────────
   // EFFECTS
@@ -2071,17 +2146,23 @@ const LiveView = () => {
     return () => clearInterval(t)
   }, [machineId, siteId, lineId])
 
+  // 7 s hold so the ready state doesn't flicker between telemetry frames
+  useEffect(() => {
+    if (drive1Ready) setLastDrive1ReadyAt(Date.now())
+  }, [drive1Ready])
+
   // ─────────────────────────────────────────────────────────
   // HANDLERS
   // ─────────────────────────────────────────────────────────
 
   const handleStart = async () => {
+    if (!canEnableMachine) { setStartBlockedVisible(true); return }
     setSending(true)
     setCmdSent('start')
     try {
       await sendCommand(machineId, 'start', { batchCutter: batchCutterState }, siteId, lineId)
-      toast.success('Command [start] dispatched')
       setRawApiStatus('running')
+      setCmdSentModal('start')
     } catch {
       toast.error('Failed to send [start]')
     } finally {
@@ -2095,13 +2176,22 @@ const LiveView = () => {
     setCmdSent('stop')
     try {
       await sendCommand(machineId, 'stop', {}, siteId, lineId)
-      toast.success('Command [stop] dispatched')
       setRawApiStatus('stopped')
+      setCmdSentModal('stop')
     } catch {
       toast.error('Failed to send [stop]')
     } finally {
       setSending(false)
       setTimeout(() => setCmdSent(null), 2500)
+    }
+  }
+
+  const handleResetProduction = async () => {
+    try {
+      await sendCommand(machineId, 'resetProduction', {}, siteId, lineId)
+      toast.success('Production counter reset')
+    } catch {
+      toast.error('Failed to reset production counter')
     }
   }
 
@@ -2341,7 +2431,7 @@ const LiveView = () => {
       <Header
         machineId={machineId}
         machineName={machine?.name}
-        machineStatus={apiStatus}
+        machineStatus={liveMachineStatus}
         backBtn
       />
 
@@ -2350,7 +2440,7 @@ const LiveView = () => {
         machineId={machineId}
         decoded={decoded}
         selectedDrive={selectedDrive}
-        apiStatus={apiStatus}
+        apiStatus={liveMachineStatus}
         batchCutterState={batchCutterState}
         alarmDrives={alarmDrives}
         networkOk={networkOk}
@@ -2422,6 +2512,7 @@ const LiveView = () => {
               totalPouches={pollData?.totalPouches         ?? null}
               pouchCounter={pollData?.pouchCounter         ?? null}
               productionRatePpm={pollData?.productionRatePpm ?? null}
+              onReset={handleResetProduction}
             />
           </div>
         </section>
@@ -2439,6 +2530,7 @@ const LiveView = () => {
                   label="Start" icon="▶" variant="success"
                   disabled={sending || isRunning}
                   onClick={handleStart} fullWidthOnMobile
+                  hint={!isRunning ? readinessTitle : undefined}
                 />
                 <CmdBtn
                   label="Stop" icon="■" variant="danger"
@@ -2493,7 +2585,7 @@ const LiveView = () => {
                 <span style={{ fontSize: 10, color: 'rgba(190,210,255,0.72)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                   Machine Status
                 </span>
-                <MachineStatusBadge status={apiStatus} />
+                <MachineStatusBadge status={liveMachineStatus} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 10, color: 'rgba(190,210,255,0.72)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -2515,6 +2607,83 @@ const LiveView = () => {
             <p style={{ marginTop: 12, fontSize: 12, color: 'rgba(180,200,255,0.45)', fontWeight: 500, lineHeight: 1.6 }}>
               Commands dispatched via CAN bus · Ensure safety conditions are met before issuing control signals
             </p>
+          </div>
+        </Section>
+
+        {/* ══ Remote Start Status ══ */}
+        <Section title="Remote Start Status" delay={0.11}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border-mid)',
+            borderRadius: 'var(--radius-md)', overflow: 'hidden',
+          }}>
+            {/* Top row: icon + title + message */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px' }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+                background: readinessColor + '18', border: `1px solid ${readinessColor}55`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20,
+                boxShadow: `0 0 18px ${readinessColor}20`,
+              }}>
+                {!hasLiveMachineData || !drive1 ? '⊘'
+                  : effectiveRemoteStartAllowed ? '✓'
+                  : drive1Running ? '▶'
+                  : drive1HasFault ? '✕'
+                  : drive1Stopping ? '⌛'
+                  : drive1Disabled ? '⊘'
+                  : drive1ReadyFresh ? '✓'
+                  : 'ℹ'}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p style={{
+                  fontSize: 14, fontWeight: 800, margin: 0, letterSpacing: '0.02em',
+                  color: readinessColor,
+                }}>{readinessTitle}</p>
+                <p style={{
+                  fontSize: 11, margin: '4px 0 0', color: 'rgba(138,155,184,0.85)',
+                  lineHeight: 1.5,
+                }}>{readinessMessage}</p>
+              </div>
+            </div>
+
+            {/* Bottom row: three status pills */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+              borderTop: '1px solid var(--border-dim)',
+            }}>
+              {[
+                {
+                  label: 'Data',
+                  value: hasLiveMachineData ? 'LIVE' : 'OFFLINE',
+                  color: hasLiveMachineData ? '#34d399' : 'rgba(68,85,112,0.8)',
+                },
+                {
+                  label: 'Drive',
+                  value: drive1ReadyFresh ? 'READY' : 'WAIT',
+                  color: drive1ReadyFresh ? '#34d399' : '#fbbf24',
+                },
+                {
+                  label: 'Start',
+                  value: effectiveRemoteStartAllowed ? 'ALLOWED' : 'LOCKED',
+                  color: effectiveRemoteStartAllowed ? '#34d399' : 'rgba(68,85,112,0.8)',
+                },
+              ].map((item, i) => (
+                <div key={item.label} style={{
+                  padding: '12px 0',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                  borderLeft: i > 0 ? '1px solid var(--border-dim)' : 'none',
+                }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                    color: 'rgba(138,155,184,0.55)', textTransform: 'uppercase',
+                  }}>{item.label}</span>
+                  <span style={{
+                    fontSize: 12, fontWeight: 800, letterSpacing: '0.07em',
+                    color: item.color,
+                  }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </Section>
 
@@ -2790,6 +2959,123 @@ const LiveView = () => {
         </div>
 
       </main>
+
+      {/* ══ Blocked Start Modal ══ */}
+      {startBlockedVisible && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, animation: 'sweep-in 0.18s ease',
+        }} onClick={() => setStartBlockedVisible(false)}>
+          <div style={{
+            width: '100%', maxWidth: 420,
+            background: 'var(--bg-card)',
+            border: `1px solid rgba(251,191,36,0.40)`,
+            borderRadius: 20, padding: 28,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            boxShadow: '0 24px 60px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.04)',
+          }} onClick={e => e.stopPropagation()}>
+            {/* Icon */}
+            <div style={{
+              width: 64, height: 64, borderRadius: 20,
+              background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.40)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
+            }}>⚠</div>
+            <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.01em' }}>
+              Machine Cannot Be Started
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.7, margin: 0 }}>
+              {readinessMessage}
+            </p>
+            {/* Status row */}
+            <div style={{
+              width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+              borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-dim)',
+            }}>
+              {[
+                { label: 'Data',    value: hasLiveMachineData ? 'LIVE' : 'OFFLINE', color: hasLiveMachineData ? '#34d399' : '#fbbf24' },
+                { label: 'Drive',   value: drive1ReadyFresh ? 'READY' : 'WAIT',     color: drive1ReadyFresh ? '#34d399' : '#fbbf24' },
+                { label: 'Start',   value: effectiveRemoteStartAllowed ? 'ALLOWED' : 'LOCKED', color: effectiveRemoteStartAllowed ? '#34d399' : '#f87171' },
+              ].map((item, i) => (
+                <div key={item.label} style={{
+                  padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  background: 'rgba(255,255,255,0.02)',
+                  borderLeft: i > 0 ? '1px solid var(--border-dim)' : 'none',
+                }}>
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: item.color, letterSpacing: '0.06em' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setStartBlockedVisible(false)}
+              style={{
+                width: '100%', padding: '12px 0', borderRadius: 12, cursor: 'pointer',
+                background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.40)',
+                color: '#fbbf24', fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
+                textTransform: 'uppercase', transition: 'var(--transition)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.22)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.12)' }}
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Command Sent Confirmation Modal ══ */}
+      {cmdSentModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, animation: 'sweep-in 0.18s ease',
+        }} onClick={() => setCmdSentModal(null)}>
+          <div style={{
+            width: '100%', maxWidth: 380,
+            background: 'var(--bg-card)',
+            border: `1px solid ${cmdSentModal === 'start' ? 'rgba(52,211,153,0.40)' : 'rgba(248,113,113,0.40)'}`,
+            borderRadius: 20, padding: 28,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            boxShadow: '0 24px 60px rgba(0,0,0,0.60)',
+          }} onClick={e => e.stopPropagation()}>
+            {/* Icon */}
+            <div style={{
+              width: 64, height: 64, borderRadius: 20,
+              background: cmdSentModal === 'start' ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)',
+              border: `1px solid ${cmdSentModal === 'start' ? 'rgba(52,211,153,0.40)' : 'rgba(248,113,113,0.40)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
+            }}>
+              {cmdSentModal === 'start' ? '✓' : '■'}
+            </div>
+            <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              {cmdSentModal === 'start' ? 'Start Command Sent' : 'Stop Command Sent'}
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.7, margin: 0 }}>
+              {cmdSentModal === 'start'
+                ? 'Machine start command dispatched successfully.'
+                : 'Machine stop command dispatched successfully.'}
+            </p>
+            <button
+              onClick={() => setCmdSentModal(null)}
+              style={{
+                width: '100%', padding: '12px 0', borderRadius: 12, cursor: 'pointer',
+                background: cmdSentModal === 'start' ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)',
+                border: `1px solid ${cmdSentModal === 'start' ? 'rgba(52,211,153,0.40)' : 'rgba(248,113,113,0.40)'}`,
+                color: cmdSentModal === 'start' ? '#34d399' : '#f87171',
+                fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
+                textTransform: 'uppercase', transition: 'var(--transition)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.75' }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

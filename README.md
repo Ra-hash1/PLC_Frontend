@@ -1,6 +1,6 @@
 # PLC Frontend — Industrial IoT Monitoring Dashboard
 
-A professional-grade real-time machine monitoring dashboard built for industrial PLC (Programmable Logic Controller) environments. It provides live telemetry streaming, multi-site machine management, CAN bus data decoding, and remote machine control through a modern React interface.
+React + Vite web dashboard for real-time PLC machine monitoring, remote control, and telemetry export. Communicates with the backend over WebSocket (live telemetry) and REST (commands, history, CSV export).
 
 ---
 
@@ -15,16 +15,17 @@ A professional-grade real-time machine monitoring dashboard built for industrial
 - [Available Scripts](#available-scripts)
 - [Architecture](#architecture)
 - [Pages & Components](#pages--components)
-- [API Integration](#api-integration)
 - [WebSocket Protocol](#websocket-protocol)
-- [Authentication](#authentication)
+- [API Integration](#api-integration)
+- [CSV Export](#csv-export)
+- [Telemetry Decoder](#telemetry-decoder)
 - [Deployment](#deployment)
 
 ---
 
 ## Overview
 
-This frontend application connects to an industrial backend to monitor PLC-controlled machines across multiple factory sites. It displays real-time telemetry from machines over WebSocket, decodes CAN bus protocol data, and allows operators to send start/stop commands remotely.
+Single-page application connecting to the PLC backend to monitor servo-driven machines across factory sites. Renders live telemetry streamed via WebSocket, decodes CAN bus / CiA 402 data, surfaces per-drive fault diagnostics, and exports full telemetry history to CSV.
 
 ---
 
@@ -32,51 +33,46 @@ This frontend application connects to an industrial backend to monitor PLC-contr
 
 ### Dashboard
 - Multi-site machine overview with status cards
-- Machine list with search, sort, and status filtering (Operational / Idle / Fault)
-- Pagination (10 machines per page)
-- Pulsing status badges for at-a-glance machine health
+- Machine list with search, sort, and status filtering
+- Aggregate statistics: Total / Operational / Idle / Fault counts
 - Auto-refresh every 30 seconds
-- Aggregate statistics: Total, Operational, Idle, Fault counts
 
 ### Live View (per-machine)
-- Real-time WebSocket telemetry streaming
-- Remote Start / Stop command controls with optimistic UI updates
-- CAN bus telemetry: state, node ID, status word, error codes
-- Drive state and operation mode display
-- Status flags: operation enabled, fault, warning, remote
+- Real-time WebSocket telemetry with automatic reconnect
+- Machine status badge: RUNNING / STOPPED / POWER OFF
+- Remote Start / Stop commands with optimistic UI feedback
+- Active fault banners (only when `errorCode ≠ 0` — no false positives)
+- **Drive Selection** — up to 16 servo drives, fault-priority selection
+- **DriveSummaryPanel** — per-drive status word bits, axis state flags (RDY/RUN/FLT/STP/STND/DSB/HOM/FRESH), torque, load % bar, motion mode pills
+- **CANopen Network panel** — per-node health grid (NMT state, error, load, torque, counters)
+- PLC State Flags grid (7 boolean flags from machine_state)
 - Message counters (RPDO RX, Telemetry TX)
-- Device uptime in HH:MM:SS
-- Connection status indicator (Live / Connecting / Offline)
-- Alert banners for active faults and warnings
+- Session Runtime clock and Production counters (pouches, rate ppm)
+- Timestamp displayed as `30-May-2026 12:56:55 IST`
 
-### General
-- JWT-based authentication with auto-logout on token expiry
-- Protected routes (unauthenticated users redirected to login)
-- Data export to PDF and Excel
-- Toast notifications for user actions
-- Fully responsive layout (desktop, tablet, mobile)
+### CSV Export
+- IST date/time pickers (From / To)
+- Progress bar with row count and ETA
+- Cursor-based pagination (500 rows/batch) — safe against concurrent inserts
+- Dynamic columns: scalar fields + all servo fields (30 per drive) + all CANopen node fields (16 per node)
+- `raw_payload` excluded from history queries — prevents Railway 502 timeouts
 
 ---
 
 ## Tech Stack
 
-| Category | Library / Tool | Version |
+| Category | Library | Version |
 |---|---|---|
-| UI Framework | React | 19.0.0 |
-| Routing | React Router DOM | 7.8.2 |
-| Build Tool | Vite | 6.2.0 |
-| HTTP Client | Axios | 1.11.0 |
-| WebSocket | Socket.io-client | 4.8.1 |
-| CSS Framework | Bootstrap | 5.3.3 |
-| Utility CSS | Tailwind CSS | 3.4.17 |
-| Charts | Recharts | 3.2.0 |
-| Icons | Lucide React + React Icons | 0.477.0 / 5.5.0 |
-| Notifications | React Toastify | 11.0.5 |
-| PDF Export | jsPDF + jsPDF AutoTable | 3.0.3 / 5.0.7 |
-| Excel Export | XLSX | 0.18.5 |
-| Screenshot | html2canvas | 1.4.1 |
-| Linting | ESLint | 9.21.0 |
-| Production Server | Serve | 14.2.4 |
+| UI Framework | React | 19 |
+| Routing | React Router DOM | 7 |
+| Build Tool | Vite | 6 |
+| HTTP Client | Axios | 1 |
+| WebSocket | Native browser WebSocket | — |
+| Notifications | React Toastify | 11 |
+| Production Server | serve | 14 |
+| Linting | ESLint | 9 |
+
+> No Bootstrap, no socket.io, no xlsx/jspdf. CSV export uses native `Blob` API. Styles use custom CSS variables.
 
 ---
 
@@ -84,39 +80,33 @@ This frontend application connects to an industrial backend to monitor PLC-contr
 
 ```
 plc-frontend/
-├── public/                         # Static public assets
+├── public/
 ├── src/
 │   ├── assets/
-│   │   └── Intute.png              # Company branding logo
+│   │   └── Intute.png              Company logo
 │   ├── components/
-│   │   ├── Dashboard.jsx           # Multi-site machine list view
-│   │   ├── LiveView.jsx            # Per-machine real-time telemetry view
-│   │   ├── LoginModal.jsx          # Authentication page
-│   │   ├── Header.jsx              # Global sticky header
-│   │   └── FooterFixed.jsx         # Fixed footer with branding
+│   │   ├── Dashboard.jsx           Multi-site machine list
+│   │   ├── LiveView.jsx            Per-machine real-time view (~2500 lines)
+│   │   ├── LoginModal.jsx          Auth page
+│   │   ├── Header.jsx              Sticky global header
+│   │   └── FooterFixed.jsx         Fixed bottom footer
 │   ├── context/
-│   │   └── AuthContext.jsx         # JWT auth state (React Context + localStorage)
+│   │   └── AuthContext.jsx         JWT auth state
 │   ├── hooks/
-│   │   ├── useWebSocket.js         # WebSocket lifecycle management hook
-│   │   └── useTelemetryHistory.js  # Historical telemetry data fetching hook
+│   │   └── useWebSocket.js         WebSocket lifecycle, decoding, plcState
 │   ├── services/
-│   │   ├── api.js                  # Axios instance with JWT interceptors
-│   │   ├── machineService.js       # Machine CRUD API calls
-│   │   ├── telemetryService.js     # Telemetry history API calls
-│   │   ├── alarmService.js         # Alarm management API calls
-│   │   └── websocket.js            # Singleton WebSocket service
+│   │   ├── api.js                  Axios instance with JWT interceptors
+│   │   ├── machineService.js       Machine CRUD API calls
+│   │   └── websocket.js            Singleton WS service with reconnect
 │   ├── utils/
-│   │   └── telemetryDecoder.js     # CAN bus telemetry data decoder
-│   ├── App.jsx                     # Root component with route definitions
-│   ├── main.jsx                    # React entry point
-│   └── index.css                   # Global styles (Tailwind + custom)
-├── .env                            # Environment variables (local)
-├── index.html                      # HTML shell
-├── vite.config.js                  # Vite bundler configuration
-├── tailwind.config.js              # Tailwind theme with custom brand colors
-├── postcss.config.js               # PostCSS plugins
-├── eslint.config.js                # ESLint rules
-└── package.json                    # Dependencies and scripts
+│   │   └── telemetryDecoder.js     CiA 402 decoder, VEICHI error codes
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── nixpacks.toml                   Railway build: runs `npm run build` before `npm start`
+├── vite.config.js
+├── eslint.config.js
+└── package.json
 ```
 
 ---
@@ -125,56 +115,43 @@ plc-frontend/
 
 ### Prerequisites
 
-- Node.js >= 18.x
-- npm >= 9.x
-- A running instance of the PLC backend (provides REST API + WebSocket)
+- Node.js >= 18
+- A running PLC backend
 
-### Installation
+### Install & Run
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd plc-frontend
-
-# Install dependencies
 npm install
+
+# Development (proxies /api and /ws to backend)
+npm run dev     # http://localhost:5173
+
+# Production preview
+npm run build
+npm run preview
 ```
-
-### Development
-
-```bash
-npm run dev
-```
-
-The app will start at [http://localhost:5173](http://localhost:5173). The dev server proxies `/api` and `/ws` requests to the backend defined in `VITE_API_URL`.
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
-
 ```env
 VITE_API_URL=http://localhost:5000
 VITE_WS_URL=ws://localhost:5000
+VITE_MACHINE_ID=machine_01        # Default machine (optional)
 ```
 
-| Variable | Description | Default |
-|---|---|---|
-| `VITE_API_URL` | Base URL of the PLC backend REST API | `http://localhost:5000` |
-| `VITE_WS_URL` | WebSocket server URL | `ws://localhost:5000` |
-
-For production, set these to your deployed backend URLs.
+Set to production backend URLs before `npm run build`. Values are inlined at build time.
 
 ---
 
 ## Available Scripts
 
 ```bash
-npm run dev       # Start Vite development server (port 5173)
-npm run build     # Build production bundle to dist/
-npm run preview   # Preview the production build locally
-npm run start     # Serve the dist/ folder (used in production deployments)
+npm run dev       # Vite dev server (HMR, port 5173)
+npm run build     # Production bundle → dist/
+npm run preview   # Serve dist/ locally
+npm start         # serve dist/ (used by Railway)
 ```
 
 ---
@@ -183,167 +160,172 @@ npm run start     # Serve the dist/ folder (used in production deployments)
 
 ### Routing
 
-Routes are defined in [src/App.jsx](src/App.jsx) using React Router v7:
-
 | Path | Component | Access |
 |---|---|---|
 | `/login` | `LoginModal` | Public |
 | `/` | `Dashboard` | Protected |
 | `/machine/:machineId` | `LiveView` | Protected |
 
-A `PrivateRoute` wrapper component checks the JWT token from `AuthContext`. Unauthenticated requests are redirected to `/login`.
-
-### State Management
-
-| Layer | Purpose |
-|---|---|
-| `AuthContext` | Global auth state (token, user, login/logout) |
-| `useWebSocket` hook | Real-time telemetry, connection status, decoded CAN data |
-| Component `useState` | Local UI state (filters, pagination, form fields) |
-
 ### Data Flow
 
 ```
-Backend REST API  →  Axios (api.js)  →  Service layer  →  Component state
-Backend WebSocket →  useWebSocket.js →  LiveView.jsx
+Backend REST API  →  Axios (api.js)  →  machineService / telemetryService  →  Component state
+Backend WebSocket →  websocket.js   →  useWebSocket hook  →  LiveView.jsx
+                                          ↓
+                                    decodeTelemetry()
+                                          ↓
+                              decoded servos / canopenNodes
 ```
+
+### State Layers
+
+| Layer | What it holds |
+|---|---|
+| `AuthContext` | JWT token, user, login/logout |
+| `useWebSocket` | `telemetry`, `decoded`, `servos`, `canopenNodes`, `plcState`, `connected` |
+| Component `useState` | Local UI (drive selection, CSV state, commands) |
 
 ---
 
 ## Pages & Components
 
-### LoginModal ([src/components/LoginModal.jsx](src/components/LoginModal.jsx))
+### LiveView
 
-Two-step view: a landing/splash screen transitions into the login form. Features floating label inputs, password visibility toggle, and animated loading state during authentication.
+The main component (`~2500 lines`). Key sections rendered in order:
 
-### Dashboard ([src/components/Dashboard.jsx](src/components/Dashboard.jsx))
+1. **Hero Status Card** — machine status badge, online/alarm badges, CAN state strip
+2. **Remote Control** — Start / Stop buttons; Start shows readiness modal if blocked
+3. **Runtime Clock** — live session timer
+4. **Production Counter** — total pouches (K), total runtime, reset button
+5. **Batch Cutter** — OFF / ON toggle
+6. **Active Drive Alarms** — conditional; only shown when `errorCode ≠ 0`
+7. **Drive Selection** — chip row with fault-priority coloring
+8. **DriveSummaryPanel** — status word bit grid, axis flags, load bar, torque
+9. **CANopen Network** — auto-fit node cards (NMT state, error, load)
+10. **CAN Bus Telemetry** — scalar stat cards
+11. **Drive Diagnostics** — full diag card with all per-drive fields
+12. **PLC State Flags** — 7 boolean cards from `machine_status` WS channel
+13. **Message Counters** — RPDO RX / Telemetry TX progress bars
+14. **CSV Export** — date range pickers, progress bar, ETA display
 
-Displays all factory sites and their machines. Supports:
-- Site-level card view with machine counts
-- Machine table with column sorting, text search, and status filter
-- Auto-refresh every 30 seconds via `setInterval`
-- Navigates to `/machine/:machineId` on row click
+### useWebSocket
 
-### LiveView ([src/components/LiveView.jsx](src/components/LiveView.jsx))
+Manages the WS connection lifecycle. Returns:
 
-Per-machine real-time monitoring page. Consumes the `useWebSocket` hook to receive live telemetry. Provides Start/Stop control buttons that send commands via the REST API and apply optimistic UI updates while the command is in-flight.
-
-### Header ([src/components/Header.jsx](src/components/Header.jsx))
-
-Sticky global header showing:
-- Company logo
-- On LiveView: machine name, UID, and live connection status badge
-- System clock and session date
-- Logged-in user name/role and logout button
-
-### FooterFixed ([src/components/FooterFixed.jsx](src/components/FooterFixed.jsx))
-
-Fixed bottom footer with security badge and Intute.ai branding.
-
----
-
-## API Integration
-
-The Axios client in [src/services/api.js](src/services/api.js) attaches the JWT token automatically to every request and handles 401 responses by clearing auth state and redirecting to login.
-
-### Endpoints
-
-| Category | Method | Path | Description |
-|---|---|---|---|
-| Auth | POST | `/auth/login` | Login with email and password |
-| Dashboard | GET | `/dashboard/sites` | List all sites |
-| Dashboard | GET | `/dashboard/sites/{siteId}/overview` | Machines for a site |
-| Dashboard | GET | `/dashboard/machine/{machineId}` | Single machine status |
-| Machines | GET | `/machines` | List all machines |
-| Machines | GET | `/machines/{machineId}` | Machine details |
-| Machines | PUT | `/machines/{machineId}/mode` | Update machine mode |
-| Commands | POST | `/commands` | Send a control command |
-| Commands | GET | `/commands/history/{machineId}` | Command history |
-| Telemetry | GET | `/telemetry/{machineId}/latest` | Latest telemetry snapshot |
-| Telemetry | GET | `/telemetry/{machineId}/history` | Historical telemetry |
-| Alarms | GET | `/alarms/{machineId}` | Get machine alarms |
-| Alarms | PUT | `/alarms/{alarmId}/acknowledge` | Acknowledge an alarm |
+```js
+{
+  telemetry,      // raw merged frame object
+  decoded,        // output of decodeTelemetry()
+  connected,      // boolean
+  servos,         // decoded?.servos ?? []
+  canopenNodes,   // decoded?.canopenNodes ?? []
+  plcState,       // { readyToRun, actuallyRunning, faulted, ... } from machine_status
+  lastAlarm,
+  dbStatus,
+  lastDataAt,
+}
+```
 
 ---
 
 ## WebSocket Protocol
 
-Managed by [src/hooks/useWebSocket.js](src/hooks/useWebSocket.js) and [src/services/websocket.js](src/services/websocket.js).
+**Connect URL:** `VITE_WS_URL`
 
-**Connection URL:** `VITE_WS_URL`
+**Subscribe (client → server):**
+```json
+{ "action": "subscribe", "siteId": "site_01", "lineId": "line_01", "machineId": "machine_01" }
+```
 
-**Client → Server messages:**
+**Server → client message types:**
 
 | Type | Payload | Description |
 |---|---|---|
-| `subscribe` | `{ machineId }` | Subscribe to a machine's telemetry stream |
-| `ping` | — | Heartbeat sent every 30 seconds |
+| `connected` | — | Subscription acknowledged |
+| `disconnected` | — | Connection dropped |
+| `snapshot` | `{ data: {...} }` | Initial DB row on connect — not treated as live data |
+| `telemetry` | `{ data: { ...mapRow fields } }` | Live telemetry frame |
+| `machine_status` | `{ status, machineId, plcFeedbackFresh, machineActuallyRunning, ... }` | DB status change |
+| `alarm` | `{ data: {...} }` | New alarm |
+| `alarm_cleared` | — | Alarm resolved |
 
-**Server → Client messages:**
-
-| Type | Description |
-|---|---|
-| `connected` | Connection acknowledged |
-| `disconnected` | Connection lost |
-| `telemetry` | CAN bus telemetry data for subscribed machine |
-| `machine_status` | Updated machine operational status |
-| `alarm` | New alarm triggered |
-| `alarm_cleared` | Existing alarm cleared |
-
-**Reconnection:** Exponential backoff from 3 seconds up to 30 seconds on disconnect.
+Reconnect: exponential backoff 3 s → 30 s.
 
 ---
 
-## Authentication
+## API Integration
 
-JWT-based auth managed by [src/context/AuthContext.jsx](src/context/AuthContext.jsx).
+All requests go through `src/services/api.js` which attaches `Authorization: Bearer <token>` and handles 401 → auto-logout.
 
-1. **Login:** `POST /auth/login` returns `{ token, user }`. Both are saved to `localStorage` under `plc_token` and `plc_user`.
-2. **Request attachment:** Every Axios request gets `Authorization: Bearer <token>` via a request interceptor.
-3. **Auto-logout:** A response interceptor detects HTTP 401 and clears auth state, then redirects to `/login`.
-4. **Manual logout:** The `logout()` function from `useAuth()` clears state, localStorage, and shows a toast notification.
+### Telemetry endpoints used by LiveView
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/telemetry/:machineId/latest` | Latest snapshot for live display |
+| GET | `/telemetry/:machineId/count?from&to` | Row count for CSV progress bar |
+| GET | `/telemetry/:machineId/array-widths?from&to` | Max servo + node array lengths for dynamic CSV columns |
+| GET | `/telemetry/:machineId/history?from&to&limit&after_id` | Paginated rows for CSV export |
+
+---
+
+## CSV Export
+
+Export flow (`handleExportCsv` in LiveView.jsx):
+
+1. **Parallel pre-flight:** `/count` + `/array-widths` — determines total rows and how many servo/node columns to generate
+2. **Build column list** dynamically: 23 scalar columns + (maxServos × 30) servo columns + (maxNodes × 16) CANopen node columns
+3. **Cursor loop** — fetches 500 rows/batch using `after_id` cursor (`WHERE id > $N ORDER BY id ASC`). Starting at `id = 0` ensures all batches use ASC order — no DESC/ASC switch, no duplicate rows.
+4. **Retry** — each batch retries once on 5xx/network error after 1.5 s
+5. **Download** — builds CSV as a `Blob`, triggers browser download via `URL.createObjectURL`
+
+**Why 500 rows/batch:** `raw_payload` is excluded server-side, making each row ~6 KB. 500 × 6 KB = 3 MB/batch — well within Railway's request timeout.
+
+**Timestamp format:** `30-May-2026 12:56:55 IST` — unambiguous, no millisecond noise.
+
+---
+
+## Telemetry Decoder
+
+`src/utils/telemetryDecoder.js` mirrors the mobile app's `plcTelemetry.ts`.
+
+Key exports:
+
+| Export | Description |
+|---|---|
+| `decodeTelemetry(data)` | Full decoder — returns decoded telemetry with `servos[]`, `canopenNodes[]`, aggregated flags |
+| `decodeServo(servo)` | Per-drive decoder — 30 fields including `faultActiveRaw`, `loadPercent`, `torqueActual`, motion flags |
+| `decodeCANopenNode(node)` | Per-node decoder — 16 fields from Lambda schema |
+| `decodeStatusWordText(sw)` | CiA 402 status word → human label |
+| `decodeModeDisplayText(mode)` | CiA 402 mode → label (Profile Position, CSV, CST…) |
+| `decodeErrorCode(code)` | VEICHI 3-digit hex error code → description |
+| `STATUS_WORD_BITS` | Full 16-bit status word bit definitions for the bit-grid UI |
+
+**Important:** `faultActive` maps to `servo.faultActiveRaw ?? servo.faultActive`. The Lambda sends `faultActiveRaw` (raw CiA 402 FAULT bit); `faultActive` is the legacy alias.
 
 ---
 
 ## Deployment
 
-### Build
+### Railway
+
+`nixpacks.toml` handles build + serve:
+
+```toml
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"    # serve -s dist
+```
+
+Set `VITE_API_URL` and `VITE_WS_URL` in Railway environment variables before deploying. Vite inlines these at build time.
+
+### Manual
 
 ```bash
 npm run build
+PORT=3001 npm start
 ```
-
-Produces a static bundle in `dist/`.
-
-### Serve (Production)
-
-```bash
-npm run start
-```
-
-Uses the `serve` package to host `dist/` on the port defined by the `$PORT` environment variable (binds to `0.0.0.0` for container environments).
-
-### Environment
-
-Set `VITE_API_URL` and `VITE_WS_URL` to your production backend URLs before building. These values are inlined at build time by Vite.
-
----
-
-## Brand & Theming
-
-Custom Tailwind colors defined in [tailwind.config.js](tailwind.config.js):
-
-| Token | Hex | Usage |
-|---|---|---|
-| `primary` | `#1B4F8A` | Primary brand blue |
-| `secondary` | `#2E75B6` | Secondary blue |
-| `accent` | `#00C2FF` | Accent / highlight |
-| `status-running` | — | Operational badge |
-| `status-stopped` | — | Idle badge |
-| `status-fault` | — | Fault badge |
-| `status-offline` | — | Offline badge |
-
-Font: **Inter** (loaded from Google Fonts).
 
 ---
 

@@ -131,8 +131,8 @@ export function decodeServo(servo) {
   const statusWord       = servo.statusWord  ?? null
   const modeDisplay      = servo.modeDisplay ?? null
 
-  // axisErrorId is the canonical name; errorCode is the legacy alias (backward compat)
-  const errorCode        = servo.axisErrorId ?? servo.errorCode ?? 0
+  // axisErrorId is the canonical name; driveErrorCode and errorCode are legacy aliases
+  const errorCode        = servo.axisErrorId ?? servo.driveErrorCode ?? servo.errorCode ?? 0
 
   // Lambda sends faultActiveRaw (raw CiA 402 FAULT bit); faultActive is legacy alias
   const faultActive      = !!(servo.faultActiveRaw ?? servo.faultActive ?? false)
@@ -189,10 +189,13 @@ export function decodeServo(servo) {
     readBlockError:   servo.readBlockError   != null ? !!servo.readBlockError   : null,
 
     // ── Torque / load ────────────────────────────────────────────────────────
-    torqueMagnitude:  servo.torqueMagnitude  != null ? Number(servo.torqueMagnitude) : null,
-    torqueNegative:   servo.torqueNegative   != null ? !!servo.torqueNegative        : null,
-    torqueActual:     servo.torqueActual     != null ? Number(servo.torqueActual)    : null,
-    loadPercent:      servo.loadPercent      != null ? Number(servo.loadPercent)     : null,
+    torqueMagnitude:    servo.torqueMagnitude    != null ? Number(servo.torqueMagnitude)    : null,
+    torqueNegative:     servo.torqueNegative     != null ? !!servo.torqueNegative           : null,
+    torqueActual:       servo.torqueActual       != null ? Number(servo.torqueActual)       : null,
+    loadPercent:        servo.loadPercent        != null ? Number(servo.loadPercent)        : null,
+    // Mobile app fields — current derived from torque (may be absent on older firmware)
+    calculatedCurrentA: servo.calculatedCurrentA != null ? Number(servo.calculatedCurrentA) : null,
+    ratedCurrentA:      servo.ratedCurrentA      != null ? Number(servo.ratedCurrentA)      : null,
 
     // ── Derived ──────────────────────────────────────────────────────────────
     alarmStatus:    (errorCode !== 0 || faultActive) ? 'ACTIVE' : 'NONE',
