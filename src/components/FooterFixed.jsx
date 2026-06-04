@@ -1,14 +1,14 @@
 const FooterFixed = () => (
   <>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
       .ftr-root {
         --accent:  #38bdf8;
         --accent2: #818cf8;
         --border:  rgba(255,255,255,0.08);
         --text-lo: rgba(241,245,249,0.32);
-        font-family: 'Outfit', sans-serif;
+        font-family: 'Inter', sans-serif;
         flex-shrink: 0;
       }
 
@@ -59,7 +59,7 @@ const FooterFixed = () => (
         display: flex;
         align-items: center;
         gap: 8px;
-        font-family: 'Outfit', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 14px;
         font-weight: 500;
         color: var(--text-lo);
@@ -76,7 +76,7 @@ const FooterFixed = () => (
       }
 
       .ftr-secured-link {
-        font-family: 'Syne', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 15px;
         font-weight: 800;
         background: linear-gradient(90deg, var(--accent), var(--accent2));
@@ -108,10 +108,7 @@ const FooterFixed = () => (
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
-          Secured by
-          <a href="https://www.intute.in/" target="_blank" rel="noopener noreferrer" className="ftr-secured-link">
-            Intute.ai
-          </a>
+          PLC Monitor · Industrial IoT
         </div>
       </div>
     </div>

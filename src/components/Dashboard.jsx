@@ -289,7 +289,7 @@ export default function Dashboard() {
       flexDirection: 'column',
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
         @keyframes ping {
           75%, 100% { transform: scale(2.2); opacity: 0; }
@@ -427,7 +427,7 @@ export default function Dashboard() {
               <h1 className="dash-topbar-title" style={{
                 fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em',
                 margin: 0, color: '#f1f5f9',
-                fontFamily: '"Syne", sans-serif',
+                fontFamily: '"Inter", sans-serif',
               }}>
                 Machine Dashboard
               </h1>
@@ -604,7 +604,7 @@ export default function Dashboard() {
 
                   <h2 className="dash-hero-title" style={{
                     fontSize: 24, fontWeight: 800,
-                    fontFamily: '"Syne", sans-serif',
+                    fontFamily: '"Inter", sans-serif',
                     letterSpacing: '-0.03em',
                     color: '#f1f5f9',
                     margin: '0 0 8px',

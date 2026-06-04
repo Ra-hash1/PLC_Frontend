@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useWebSocket } from '../hooks/useWebSocket'
-import logo from '../assets/Intute.png'
+import logo from '../assets/PLC.png'
 
 const LIVE_THRESHOLD_MS = 15_000
 
@@ -40,7 +40,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
         .hdr-root {
           --hdr-h: 70px;
@@ -53,7 +53,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           --border:  rgba(255,255,255,0.08);
           --text-hi: #f1f5f9;
           --text-lo: rgba(241,245,249,0.22);
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Inter', sans-serif;
           position: sticky;
           top: 0;
           z-index: 200;
@@ -117,7 +117,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
         .hdr-back-btn {
           display: flex; align-items: center; gap: 6px;
           background: none; border: none; cursor: pointer;
-          color: var(--text-lo); font-family: 'Outfit', sans-serif;
+          color: var(--text-lo); font-family: 'Inter', sans-serif;
           font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
           text-transform: uppercase; padding: 0 16px 0 0; margin-right: 0;
           border-right: 1px solid var(--border); height: 100%;
@@ -137,21 +137,24 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
         }
         .hdr-logo-zone:hover { opacity: 0.8; }
         .hdr-logo-ring {
-          width: 58px; height: 58px; border-radius: 14px; padding: 2px;
-          background: linear-gradient(135deg, var(--accent), var(--accent2));
-          flex-shrink: 0; box-shadow: 0 0 18px rgba(56,189,248,0.25); overflow: visible;
+          /* bg matches the logo's own dark background — box edge disappears */
+          flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+          background: #080c12; border-radius: 10px; overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(0,198,255,0.18);
         }
         .hdr-logo-inner {
-          width: 100%; height: 100%; border-radius: 12px; background: #0a1628;
-          display: flex; align-items: center; justify-content: center; overflow: visible;
+          display: flex; align-items: center; justify-content: center;
         }
-        .hdr-logo-img { width: 180px; height: 180px; object-fit: contain; }
+        .hdr-logo-img {
+          height: 44px; width: 44px; object-fit: cover;
+          display: block;
+        }
         .hdr-logo-fallback {
-          font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent);
+          font-family: 'Inter', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent);
         }
         .hdr-brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .hdr-brand-name {
-          font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+          font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 800;
           color: var(--text-hi); letter-spacing: -0.02em; line-height: 1;
           white-space: nowrap;
         }
@@ -167,7 +170,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           min-width: 0;
         }
         .hdr-machine-name {
-          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+          font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
           color: var(--text-hi); letter-spacing: -0.01em; line-height: 1; display: block;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
         }
@@ -262,7 +265,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           background: linear-gradient(135deg, #1e40af, #7c3aed);
           border: 1px solid rgba(124,58,237,0.4);
           display: flex; align-items: center; justify-content: center;
-          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: #fff;
+          font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 800; color: #fff;
           flex-shrink: 0; box-shadow: 0 0 12px rgba(124,58,237,0.2);
         }
         .hdr-user-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -274,7 +277,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
         .hdr-logout {
           display: flex; align-items: center; gap: 6px;
           background: none; border: 1px solid var(--border); cursor: pointer;
-          color: var(--text-lo); font-family: 'Outfit', sans-serif;
+          color: var(--text-lo); font-family: 'Inter', sans-serif;
           font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
           padding: 8px 12px; border-radius: 9px; transition: all 0.18s;
           white-space: nowrap; flex-shrink: 0;
@@ -303,8 +306,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
           .hdr-machine-zone { display: none; }
           .hdr-inner { padding: 0 16px; }
           .hdr-logo-zone { padding: 0 14px; gap: 10px; }
-          .hdr-logo-ring { width: 46px; height: 46px; border-radius: 11px; }
-          .hdr-logo-img { width: 140px; height: 140px; }
+          .hdr-logo-img { height: 42px; width: 42px; }
           .hdr-brand-name { font-size: 13px; }
           .hdr-right { padding-left: 14px; gap: 8px; }
           .hdr-logout { padding: 7px 10px; }
@@ -322,7 +324,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
 
         @media (max-width: 400px) {
           .hdr-logo-zone { padding: 0 10px; gap: 8px; }
-          .hdr-logo-ring { width: 38px; height: 38px; border-radius: 9px; }
+          .hdr-logo-img { height: 34px; width: 34px; }
           .hdr-brand-name { font-size: 12px; }
           .hdr-inner { padding: 0 10px; }
           .hdr-right { padding-left: 10px; }
@@ -354,7 +356,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
                 <div className="hdr-logo-inner">
                   <img
                     src={logo}
-                    alt="Intute"
+                    alt="PLC"
                     className="hdr-logo-img"
                     onError={e => {
                       e.currentTarget.style.display = 'none'
@@ -366,7 +368,7 @@ const Header = ({ machineId, machineName, backBtn = false }) => {
               </div>
               <div className="hdr-brand">
                 <span className="hdr-brand-name">PLC Monitor</span>
-                <span className="hdr-brand-tag">Intute · Industrial</span>
+                <span className="hdr-brand-tag">Industrial Monitor</span>
               </div>
             </div>
 

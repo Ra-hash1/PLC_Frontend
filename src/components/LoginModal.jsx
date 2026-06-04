@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-toastify'
 import { Eye, EyeOff, ArrowRight, ChevronLeft, Mail, Lock } from 'lucide-react'
-import logo from '../assets/Intute.png'
+import logo from '../assets/PLC.png'
 
 /* ─── Floating Label Input ─── */
 function FloatingInput({ type, value, onChange, label, icon: Icon, id, showToggle, onToggle, showPassword, disabled }) {
@@ -137,7 +137,7 @@ const LoginModal = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
         .lm-root {
           --accent:    #38bdf8;
@@ -193,37 +193,44 @@ const LoginModal = () => {
           padding: 0 32px; max-width: 540px; width: 100%;
         }
 
-        .lm-logo-wrap { margin-bottom: 40px; position: relative; }
+        .lm-logo-wrap { margin-bottom: 32px; position: relative; display: flex; align-items: center; justify-content: center; }
 
         .lm-logo-pulse {
-          position: absolute; inset: -14px; border-radius: 28px;
-          border: 1px solid rgba(56,189,248,0.14);
+          position: absolute; inset: -16px; border-radius: 50%;
+          border: 1px solid rgba(0,198,255,0.16);
           animation: lm-pulse 3s ease-in-out infinite;
+          pointer-events: none;
         }
         @keyframes lm-pulse {
-          0%,100% { opacity: 0.4; transform: scale(1); }
-          50%      { opacity: 1;   transform: scale(1.05); }
+          0%,100% { opacity: 0.3; transform: scale(1); }
+          50%      { opacity: 0.9; transform: scale(1.06); }
         }
 
         .lm-logo-ring {
-          width: 80px; height: 80px; border-radius: 20px;
-          background: rgba(56,189,248,0.08);
-          border: 1px solid rgba(56,189,248,0.2);
-          display: flex; align-items: center; justify-content: center;
-          overflow: hidden; position: relative;
+          background: #080c12; border-radius: 22px; overflow: hidden;
+          display: flex; align-items: center; justify-content: center; position: relative;
+          box-shadow: 0 0 0 1px rgba(0,198,255,0.22), 0 0 32px rgba(0,198,255,0.16), 0 8px 32px rgba(0,0,0,0.40);
+          animation: lm-logo-glow 4s ease-in-out infinite;
         }
-        .lm-logo-img      { width: 64px; height: 64px; object-fit: contain; }
+        @keyframes lm-logo-glow {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(0,198,255,0.22), 0 0 32px rgba(0,198,255,0.16), 0 8px 32px rgba(0,0,0,0.40); }
+          50%       { box-shadow: 0 0 0 1px rgba(0,198,255,0.55), 0 0 52px rgba(0,198,255,0.35), 0 8px 32px rgba(0,0,0,0.40); }
+        }
+        .lm-logo-img {
+          width: 120px; height: 120px; object-fit: cover;
+          display: block;
+        }
         .lm-logo-fallback {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 30px; font-weight: 800; color: var(--accent);
         }
 
         .lm-main-title {
-          font-family: 'Syne', sans-serif;
-          font-size: clamp(40px, 8vw, 64px);
+          font-family: 'Inter', sans-serif;
+          font-size: clamp(42px, 7vw, 62px);
           font-weight: 800; color: var(--text-hi);
-          letter-spacing: -0.03em; line-height: 1.05;
-          margin-bottom: 12px;
+          letter-spacing: -0.04em; line-height: 1.05;
+          margin-bottom: 10px;
         }
         .lm-main-title span { color: var(--accent); }
 
@@ -292,15 +299,15 @@ const LoginModal = () => {
         .lm-back:disabled       { opacity: 0.4; cursor: not-allowed; }
 
         .lm-mini-logo {
-          width: 36px; height: 36px; border-radius: 9px;
-          background: rgba(56,189,248,0.08);
-          border: 1px solid rgba(56,189,248,0.18);
+          background: #080c12; border-radius: 8px; overflow: hidden;
           display: flex; align-items: center; justify-content: center;
-          overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(0,198,255,0.20);
         }
-        .lm-mini-logo img     { width: 28px; height: 28px; object-fit: contain; }
+        .lm-mini-logo img {
+          width: 34px; height: 34px; object-fit: cover; display: block;
+        }
         .lm-mini-fallback {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 14px; font-weight: 800; color: var(--accent);
         }
 
@@ -315,7 +322,7 @@ const LoginModal = () => {
         .lm-stext { font-size: 11px; color: var(--text-lo); }
 
         .lm-heading {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 22px; font-weight: 800;
           color: var(--text-hi); letter-spacing: -0.02em;
           margin-bottom: 5px;
@@ -386,7 +393,7 @@ const LoginModal = () => {
               <div className="lm-logo-ring">
                 <img
                   src={logo}
-                  alt="Intute"
+                  alt="PLC"
                   className="lm-logo-img"
                   onError={e => {
                     e.currentTarget.style.display = 'none'
@@ -401,7 +408,7 @@ const LoginModal = () => {
               PLC<br /><span>Monitor</span>
             </h1>
             <div className="lm-shimmer" />
-            <p className="lm-subtitle">Powered by Intute.ai</p>
+            <p className="lm-subtitle">Industrial PLC Monitoring</p>
 
             <button className="lm-cta" onClick={goToForm}>
               Get Started
@@ -436,7 +443,7 @@ const LoginModal = () => {
                 <div className="lm-mini-logo">
                   <img
                     src={logo}
-                    alt="Intute"
+                    alt="PLC"
                     onError={e => {
                       e.currentTarget.style.display = 'none'
                       e.currentTarget.nextSibling.style.display = 'block'
@@ -498,15 +505,7 @@ const LoginModal = () => {
             </div>
 
             <div className="lm-card-foot">
-              <span className="lm-foot-text">Secured by</span>
-              <a
-                href="https://www.intute.in/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="lm-foot-link"
-              >
-                Intute.ai
-              </a>
+              <span className="lm-foot-text">PLC Monitor · Industrial IoT</span>
             </div>
           </div>
         )}
